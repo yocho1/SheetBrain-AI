@@ -1,0 +1,15 @@
+{
+  "scriptId": "YOUR_SCRIPT_ID_HERE",
+  "rootDir": "dist",
+  "projectIdSettings": {
+    "projectId": "YOUR_GCP_PROJECT_ID"
+  },
+  "dependencies": {
+    "libraries": [
+      {
+        "userSymbol": "OAuth2",
+        "libraryId": "1B7FSrk5Zi6L1rSxxTDgDEUsPzlukDsi4KGuWMHgBqo"
+      }
+    ]
+  }
+}

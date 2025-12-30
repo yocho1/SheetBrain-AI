@@ -1,0 +1,35 @@
+{
+  "name": "sheetbrain-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Premium Google Sheets add-on for formula auditing using RAG",
+  "workspaces": [
+    "apps-script",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "format": "turbo format",
+    "deploy:gas": "cd apps-script && npm run deploy",
+    "deploy:vercel": "cd backend && npm run deploy",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@typescript-eslint/eslint-plugin": "^6.17.0",
+    "@typescript-eslint/parser": "^6.17.0",
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1",
+    "turbo": "^1.11.2",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

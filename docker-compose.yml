@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: sheetbrain-postgres
+    environment:
+      POSTGRES_DB: sheetbrain
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ 'CMD-SHELL', 'pg_isready -U postgres' ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sheetbrain-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ 'CMD', 'redis-cli', 'ping' ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: Pinecone alternative for local development
+  milvus:
+    image: milvusdb/milvus:v0.2.0
+    container_name: sheetbrain-milvus
+    environment:
+      COMMON_STORAGETYPE: local
+    ports:
+      - '19530:19530'
+      - '9091:9091'
+    volumes:
+      - milvus_data:/var/lib/milvus
+
+  # Local Stripe mock
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    container_name: sheetbrain-stripe-mock
+    command: listen --api-key ${STRIPE_API_KEY} --forward-to http://host.docker.internal:3000/api/stripe/webhook
+    ports:
+      - '8001:8001'
+
+volumes:
+  postgres_data:
+  redis_data:
+  milvus_data:
+
+
+networks:
+  default:
+    name: sheetbrain-network
