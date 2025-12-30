@@ -1,5 +1,4 @@
 {
-  "buildCommand": "pnpm --filter @sheetbrain/backend build",
-  "outputDirectory": "backend/.next",
-  "framework": "nextjs"
+  "buildCommand": "cd backend && pnpm build",
+  "outputDirectory": "backend/.next"
 }
