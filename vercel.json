@@ -1,4 +1,0 @@
-{
-  "buildCommand": "cd backend && pnpm build",
-  "outputDirectory": "backend/.next"
-}
