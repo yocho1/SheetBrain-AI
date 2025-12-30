@@ -84,9 +84,6 @@ importers:
       '@pinecone-database/pinecone':
         specifier: ^2.1.0
         version: 2.2.2
-      '@sheetbrain/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.89.0

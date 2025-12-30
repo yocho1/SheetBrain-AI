@@ -1,316 +1,91 @@
-# SheetBrain AI - Premium Google Sheets Formula Auditing
-
-## Overview
-
-SheetBrain AI is an enterprise-grade Google Sheets add-on that audits spreadsheet formulas against company policies using retrieval-augmented generation (RAG) and AI-powered analysis.
-
-**Key Features:**
-- 🤖 AI-powered formula analysis using Claude 3.5 Sonnet
-- 🔍 Policy compliance checking with RAG against company documents
-- 💡 Intelligent formula suggestions with impact analysis
-- 🛡️ Enterprise security (SSO, audit trails, encryption)
-- 📊 Real-time performance analytics
-- 💳 Usage-based billing via Stripe
-
-## Quick Start
-
-### Prerequisites
-- Node.js 20+
-- Docker & Docker Compose
-- Vercel account (for backend deployment)
-- Google Cloud project (for Apps Script)
-
-### Development Setup
-
-```bash
-# Clone repository
 git clone https://github.com/yocho1/SheetBrain-AI.git
-cd SheetBrain-AI
-
-# Install dependencies
-npm install
-
-# Start development environment
 docker-compose up -d
-npm run dev
+git checkout -b feature/new-feature
+git add .
+git commit -m "feat: new feature"
+git push origin feature/new-feature
 
-# In separate terminal - watch builds
-npm run build -- --watch
-```
+# SheetBrain AI
 
-### Environment Configuration
+AI-assisted formula auditing for Google Sheets, with policy-aware checks and a Lit-based sidebar.
 
-```bash
-# Copy example environment file
-cp backend/.env.example backend/.env.local
+## What’s inside
 
-# Fill in required credentials:
-# - ANTHROPIC_API_KEY (for Claude)
-# - OPENAI_API_KEY (for embeddings)
-# - PINECONE_API_KEY (for vector search)
-# - STRIPE_API_KEY (for billing)
-# - CLERK_SECRET_KEY (for auth)
-```
+- Next.js 15 backend (API routes for audit, policies, ingest)
+- Clerk auth + JWT helpers (debug login for local/testing)
+- OpenRouter + Anthropic SDK for audits
+- In-memory policy store with default seeds
+- Google Apps Script sidebar (Lit) that calls the audit API
 
-## Architecture
+## Repo layout
 
-### Tech Stack
+- `backend/` – Next.js app, APIs, auth, audit logic
+- `apps-script/` – Sidebar UI and Apps Script helpers
+- `shared/` – Shared types
 
-**Frontend:**
-- Google Apps Script (ES6+)
-- Lit Web Components
-- Tailwind CSS
-- Google Workspace Design System
+## Prerequisites
 
-**Backend:**
-- Next.js 15 (Edge Runtime)
-- TypeScript 5.5+
-- tRPC 11 (type-safe APIs)
-- Zod (validation)
+- Node.js 20+
+- pnpm 8+
+- Vercel account (backend deploy)
+- Google account with Apps Script enabled
 
-**AI/ML:**
-- Claude 3.5 Sonnet (analysis)
-- OpenAI Embeddings (vectors)
-- Pinecone (vector DB)
-- Supabase + pgvector (hybrid search)
-
-**Infrastructure:**
-- Vercel (hosting)
-- PostgreSQL 15 (database)
-- Redis 7 (caching/rate-limiting)
-- Stripe (billing)
-
-## Project Structure
-
-```
-sheets-brain-ai/
-├── apps-script/          # Google Sheets Add-on
-│   ├── src/
-│   │   ├── ui/          # Lit Web Components
-│   │   ├── services/    # API clients
-│   │   ├── auth/        # OAuth flow
-│   │   └── utils/       # Sheet parsing
-│   ├── appsscript.json  # Manifest
-│   └── clasp.json       # Clasp config
-│
-├── backend/             # Next.js API
-│   ├── src/
-│   │   ├── app/api/     # Route handlers
-│   │   ├── lib/ai/      # RAG pipeline
-│   │   ├── middleware.ts # Auth & rate limiting
-│   │   └── types/       # TypeScript definitions
-│   ├── next.config.js
-│   └── .env.example
-│
-├── shared/              # Shared types
-│   └── types.ts         # Zod schemas
-│
-├── docker-compose.yml
-├── .github/workflows/   # CI/CD pipelines
-└── README.md
-```
-
-## Core Features
-
-### 1. Formula Auditing
-
-Analyzes formulas against company policies:
-```
-POST /api/v1/audit
-{
-  "range": "Sheet1!A1:B10",
-  "context": {
-    "sheetName": "Budget",
-    "organization": "ACME Inc",
-    "department": "Finance"
-  }
-}
-```
-
-Returns:
-- Complexity analysis (low/medium/high)
-- Policy compliance status
-- Issues found with severity levels
-- Actionable suggestions with new formulas
-- Confidence scores
-
-### 2. Document Ingestion
-
-Upload company policies to build knowledge base:
-```
-POST /api/v1/ingest
-Content-Type: multipart/form-data
-
-file: <policy_document.pdf>
-```
-
-Automatically:
-- Extracts text with Unstructured.io
-- Creates semantic embeddings
-- Stores in vector database (Pinecone)
-- Indexes in PostgreSQL for hybrid search
-
-### 3. RAG Retrieval
-
-Multi-stage retrieval with re-ranking:
-1. Generate sub-queries for nuanced search
-2. Parallel vector search in Pinecone
-3. Keyword search in PostgreSQL
-4. Cross-encoder re-ranking
-5. Context compression
-
-### 4. Billing & Rate Limiting
-
-Metered billing with Stripe:
-```typescript
-await stripe.subscriptionItems.createUsageRecord(subscriptionItemId, {
-  quantity: 1,
-  timestamp: Math.floor(Date.now() / 1000),
-  action: 'increment'
-});
-```
-
-Rate limits: 100 audits per minute per user
-- Enforced via Redis
-- Graceful degradation
-- Usage tracking for analytics
-
-## Deployment
-
-### Backend (Vercel)
+## Quick start (backend)
 
 ```bash
+pnpm install
 cd backend
-npm run build
-vercel deploy --prod
+cp .env.example .env.local
+# Set at least: CLERK_SECRET_KEY, SESSION_SECRET, OPENROUTER_API_KEY
+pnpm dev
 ```
 
-### Apps Script (Google Workspace)
+Test the audit API locally:
+
+```bash
+pnpm dev  # in one terminal
+
+# new terminal
+$jwt = (Invoke-RestMethod -Uri "http://localhost:3000/api/auth/debug-login" -Method Post -Body (@{ userId="test_user"; email="test@sheetbrain.com"; orgId="test_org"; role="editor" } | ConvertTo-Json) -ContentType "application/json").accessToken
+$body = @{ range = "A1:B2"; context = @{ sheetName="Sheet1"; range="A1:B2"; organization="Test Corp"; department="Finance"; sheetPurpose="Monthly reconciliation"; data=@{ formulas=@( @("=SUM(A1:A10)", "=IF(B1>100,C1,0)"), @("=VLOOKUP(D1,Sheet2!A:B,2,FALSE)", "" ) ) } } } | ConvertTo-Json -Depth 6
+Invoke-RestMethod -Uri "http://localhost:3000/api/audit" -Method Post -Headers @{ Authorization = "Bearer $jwt" } -Body $body -ContentType "application/json" | ConvertTo-Json -Depth 6
+```
+
+## Quick start (Apps Script sidebar)
 
 ```bash
 cd apps-script
-npm install
-npm run build
-clasp push
+pnpm install
+pnpm build
+# Update backend URL in script properties or default to http://localhost:3000
+# Push to your Apps Script project
+pnpm clasp push
 ```
 
-### Database (Supabase)
-
-1. Create new Supabase project
-2. Run `init.sql` to set up schema
-3. Configure pgvector extension
-4. Update connection strings
-
-## Security
-
-- **Authentication:** Clerk + Google OAuth
-- **Authorization:** Role-based access control (RBAC)
-- **Data Protection:** 
-  - End-to-end encryption for sensitive data
-  - PII detection and redaction
-  - GDPR/CCPA compliance by design
-- **API Security:**
-  - Rate limiting (100 req/min per user)
-  - SQL injection prevention (Prisma)
-  - XSS/CSRF protection headers
-  - JWT tokens (15-minute expiry)
-
-## Monitoring
-
-- **Error Tracking:** Sentry
-- **Analytics:** PostHog
-- **Logging:** Axiom
-- **APM:** Vercel Analytics
-- **Performance:** <100ms response time target
-
-## API Documentation
-
-### Authentication
-All requests require Bearer token:
-```
-Authorization: Bearer {jwt_token}
-```
-
-### Endpoints
-
-- `POST /api/v1/audit` - Submit formula for audit
-- `POST /api/v1/ingest` - Upload policy document
-- `POST /api/stripe/webhook` - Stripe events
-- `GET /api/health` - Health check
-
-## Development Workflow
+## Deployment (Vercel)
 
 ```bash
-# Feature branch
-git checkout -b feature/new-feature
-
-# Make changes
-npm run lint --fix
-npm run test
-
-# Commit
-git add .
-git commit -m "feat: new feature"
-
-# Push and create PR
-git push origin feature/new-feature
+cd backend
+pnpm build
+vercel deploy --prod
 ```
 
-Pull requests trigger:
-- Automated tests
-- Security scans (Semgrep, CodeQL, TruffleHog)
-- SonarQube analysis
-- Deployment preview on Vercel
+If lint config misbehaves, build still works because lint is skipped during Next.js build (see `next.config.js`).
 
-## Performance Targets
+## Key environment variables
 
-- ⚡ API response time: <100ms
-- 📱 Sidebar load time: <2s
-- 🔄 Document ingestion: 500+ pages/min
-- 📊 Concurrent users: 10,000+
+- `CLERK_SECRET_KEY` – Clerk backend key
+- `SESSION_SECRET` – JWT signing secret
+- `OPENROUTER_API_KEY` – OpenRouter key for audits
+- `STRICT_AUDIT` – `true` to require real LLM responses (no mock fallback)
 
-## Roadmap
+## Notes
 
-### Phase 1 (Week 1-2)
-- ✅ Monorepo setup
-- ✅ Database schema
-- ✅ Auth foundation
-
-### Phase 2 (Week 3-4)
-- ⏳ RAG pipeline
-- ⏳ Audit API
-- ⏳ Billing integration
-
-### Phase 3 (Week 5-6)
-- ⏳ GAS sidebar UI
-- ⏳ Suggestion engine
-- ⏳ Admin dashboard
-
-### Phase 4 (Week 7+)
-- ⏳ Security hardening
-- ⏳ Performance optimization
-- ⏳ Google Marketplace submission
-
-## Contributing
-
-1. Fork repository
-2. Create feature branch
-3. Make changes with tests
-4. Submit pull request
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+- Auth for the sidebar/dev flow uses `/api/auth/debug-login` to mint a JWT quickly.
+- Policy store is in-memory; restart resets defaults (seeded on boot).
+- Linting is disabled during build to keep deployments unblocked; run lint separately when configs are stable.
 
 ## Support
 
-- 📖 [Documentation](https://docs.sheetbrain.ai)
-- 🐛 [Issue Tracker](https://github.com/yocho1/SheetBrain-AI/issues)
-- 💬 [Discord Community](https://discord.gg/sheetbrain)
-
-## License
-
-Proprietary - All rights reserved
-
-## Contact
-
-- Email: hello@sheetbrain.ai
-- Website: https://sheetbrain.ai
+- Issues: https://github.com/yocho1/SheetBrain-AI/issues
+- Docs (internal): see `DOCUMENTATION_INDEX.md`

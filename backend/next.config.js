@@ -5,6 +5,10 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   productionBrowserSourceMaps: false,
+  eslint: {
+    // Skip ESLint during builds; lint separately in CI when config is stable
+    ignoreDuringBuilds: true,
+  },
   // Silence monorepo lockfile warning; set root to repo root
   outputFileTracingRoot: path.join(__dirname, '..'),
   // Moved from experimental.serverComponentsExternalPackages

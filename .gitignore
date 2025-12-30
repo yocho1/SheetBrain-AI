@@ -14,6 +14,7 @@ build/
 .next/
 out/
 .turbo/
+.vercel
 
 # IDE
 .vscode/
@@ -29,6 +30,7 @@ logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
 # Runtime data
 pids/
@@ -39,6 +41,5 @@ pids/
 # Coverage
 coverage/
 
-# Clasp
-.clasp.json
-src/
+# Apps Script (local credentials only)
+apps-script/.clasp.json

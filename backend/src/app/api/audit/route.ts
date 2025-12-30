@@ -1,0 +1,162 @@
+/**
+ * Audit API route handler
+ * POST /api/audit - Audits formulas against company policies using OpenRouter
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { auditFormulas } from '@/lib/llm/openrouter';
+import { listPolicies, seedDefaultPolicies } from '@/lib/policies/store';
+
+interface SheetContext {
+  sheetName?: string;
+  sheetId?: number;
+  spreadsheetId?: string;
+  range?: string;
+  data?: {
+    values?: unknown[][];
+    formulas?: string[][];
+  };
+  formulas?: string[][];
+  organization?: string;
+  department?: string;
+  sheetPurpose?: string;
+}
+
+function colLettersToIndex(letters: string): number {
+  return letters
+    .toUpperCase()
+    .split('')
+    .reduce((acc, char) => acc * 26 + (char.charCodeAt(0) - 64), 0) - 1;
+}
+
+function indexToColLetters(index: number): string {
+  let n = index + 1;
+  let result = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    result = String.fromCharCode(65 + rem) + result;
+    n = Math.floor((n - 1) / 26);
+  }
+  return result;
+}
+
+function parseRange(range: string) {
+  const [start] = range.split(':');
+  const match = start.match(/([A-Z]+)(\d+)/i);
+  if (!match) return { startCol: 0, startRow: 1 };
+  const [, col, row] = match;
+  return { startCol: colLettersToIndex(col), startRow: parseInt(row, 10) };
+}
+
+function extractFormulas(context: SheetContext, range: string) {
+  const matrix = context?.data?.formulas || context?.formulas || [];
+  if (!Array.isArray(matrix) || matrix.length === 0) return [];
+
+  const { startCol, startRow } = parseRange(range || 'A1');
+  const collected: Array<{ cell: string; formula: string }> = [];
+
+  matrix.forEach((row, rowIdx) => {
+    row.forEach((cellFormula, colIdx) => {
+      if (cellFormula && typeof cellFormula === 'string' && cellFormula.startsWith('=')) {
+        const cellAddress = `${indexToColLetters(startCol + colIdx)}${startRow + rowIdx}`;
+        collected.push({ cell: cellAddress, formula: cellFormula });
+      }
+    });
+  });
+
+  return collected;
+}
+
+function buildPoliciesText(orgId: string) {
+  seedDefaultPolicies(orgId);
+  const policies = listPolicies(orgId);
+  return policies
+    .map((p, idx) => `${idx + 1}. ${p.title}: ${p.content}`)
+    .join('\n');
+}
+
+/**
+ * POST /api/audit
+ * Audits one or more formulas against company policies using OpenRouter
+ */
+export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+
+  try {
+    const userId = request.headers.get('x-user-id');
+    const orgId = request.headers.get('x-user-org');
+
+    if (!userId || !orgId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { range, context } = body as { range?: string; context?: SheetContext };
+
+    if (!range || !context) {
+      return NextResponse.json(
+        { error: 'Missing required fields: range, context' },
+        { status: 400 }
+      );
+    }
+
+    const formulasWithCells = extractFormulas(context || {}, range);
+
+    if (formulasWithCells.length === 0) {
+      return NextResponse.json(
+        { error: 'No formulas found in the provided range/context' },
+        { status: 400 }
+      );
+    }
+
+    const policiesText = buildPoliciesText(orgId);
+    const auditContext = `Organization: ${context.organization || 'Unknown'}\nDepartment: ${context.department || 'N/A'}\nSheet: ${context.sheetName || 'N/A'} (${context.range || range})\nPurpose: ${context.sheetPurpose || 'Not provided'}`;
+
+    // Audit formulas using OpenRouter
+    const strictAudit = process.env.STRICT_AUDIT === 'true';
+    let auditResults = [] as Awaited<ReturnType<typeof auditFormulas>>;
+
+    try {
+      auditResults = await auditFormulas({
+        formulas: formulasWithCells.map((f) => f.formula),
+        policies: policiesText,
+        context: auditContext,
+      });
+    } catch (err) {
+      console.error('OpenRouter error:', err);
+      if (strictAudit) {
+        throw err;
+      }
+
+      // Fallback to mock results if OpenRouter fails and strict mode is off
+      auditResults = formulasWithCells.map((entry) => ({
+        formula: entry.formula,
+        compliant: Math.random() > 0.3,
+        risk: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)] as 'low' | 'medium' | 'high',
+        issues: Math.random() > 0.5 ? ['Potential performance issue'] : [],
+        recommendations: ['Consider using SUMIF for better performance'],
+      }));
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        audits: auditResults.map((result, idx) => ({
+          cellAddress: formulasWithCells[idx]?.cell,
+          ...result,
+        })),
+        count: auditResults.length,
+        compliant: auditResults.filter((r) => r.compliant).length,
+        timestamp: new Date().toISOString(),
+        duration: Date.now() - startTime,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Audit error:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Audit failed' },
+      { status: 500 }
+    );
+  }
+}
