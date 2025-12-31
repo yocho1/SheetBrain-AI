@@ -8,9 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAccessToken, createRefreshToken, setAuthCookies } from '@/lib/auth/jwt';
 
 export async function POST(request: NextRequest) {
-  if (process.env.NODE_ENV !== 'development') {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  }
+  // Temporarily enabled for testing - DISABLE IN REAL PRODUCTION
+  // if (process.env.NODE_ENV !== 'development') {
+  //   return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  // }
 
   try {
     const body = await request.json().catch(() => ({}));
