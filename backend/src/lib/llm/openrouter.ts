@@ -5,22 +5,35 @@
 
 import { Anthropic } from '@anthropic-ai/sdk';
 
-const apiKey = process.env.OPENROUTER_API_KEY;
+// Lazy client initialization - only created when first used
+let _client: Anthropic | null = null;
 
-if (!apiKey) {
-  throw new Error('Missing OPENROUTER_API_KEY in environment');
+function getClient(): Anthropic {
+  if (!_client) {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    
+    if (!apiKey) {
+      throw new Error('Missing OPENROUTER_API_KEY in environment');
+    }
+
+    _client = new Anthropic({
+      apiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+      defaultHeaders: {
+        'HTTP-Referer': process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+        'X-Title': 'SheetBrain',
+      },
+    });
+  }
+  return _client;
 }
 
-// Initialize Anthropic client with OpenRouter endpoint
-// OpenRouter is compatible with Anthropic's SDK when using the correct base URL
-export const openrouter = new Anthropic({
-  apiKey,
-  baseURL: 'https://openrouter.ai/api/v1',
-  defaultHeaders: {
-    'HTTP-Referer': process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
-    'X-Title': 'SheetBrain',
+// Backward compatibility export
+export const openrouter = {
+  get messages() {
+    return getClient().messages;
   },
-});
+};
 
 // Model options available through OpenRouter
 export const MODELS = {
