@@ -6,6 +6,10 @@ module.exports = {
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist'),
+    library: {
+      type: 'umd',
+      name: 'SheetBrain',
+    },
   },
   module: {
     rules: [
@@ -19,9 +23,12 @@ module.exports = {
   resolve: {
     extensions: ['.tsx', '.ts', '.js'],
   },
-  devtool: 'source-map',
+  devtool: false, // Disable source maps for production
   performance: {
     maxEntrypointSize: 512000,
     maxAssetSize: 512000,
+  },
+  optimization: {
+    minimize: false, // Don't minify to keep functions readable
   },
 };
