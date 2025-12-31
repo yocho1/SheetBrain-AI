@@ -10,12 +10,9 @@ let _client: Anthropic | null = null;
 
 function getClient(): Anthropic {
   if (!_client) {
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY || '';
     
-    if (!apiKey) {
-      throw new Error('Missing OPENROUTER_API_KEY in environment');
-    }
-
+    // Let Anthropic SDK handle missing key error with proper error message
     _client = new Anthropic({
       apiKey,
       baseURL: 'https://openrouter.ai/api/v1',
