@@ -11,7 +11,7 @@ const scriptProperties = PropertiesService.getScriptProperties();
 function getBackendBaseUrl(): string {
   return (
     scriptProperties.getProperty('BACKEND_BASE_URL') ||
-    'http://localhost:3000'
+    'https://sheetbrain-ai.vercel.app'
   );
 }
 

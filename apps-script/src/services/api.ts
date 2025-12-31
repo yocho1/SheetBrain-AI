@@ -36,7 +36,6 @@ class APIClient {
       method: options.method || 'get',
       headers,
       muteHttpExceptions: true,
-      timeout: options.timeout || 30000,
     };
 
     if (options.payload) {

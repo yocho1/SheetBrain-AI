@@ -447,9 +447,9 @@ export class SheetBrainSidebar extends LitElement {
           .getBackendBaseUrl();
       });
 
-      this.backendBaseUrl = baseUrl || 'http://localhost:3000';
+      this.backendBaseUrl = baseUrl || 'https://sheetbrain-ai.vercel.app';
     } catch (err) {
-      this.backendBaseUrl = 'http://localhost:3000';
+      this.backendBaseUrl = 'https://sheetbrain-ai.vercel.app';
     }
 
     return this.backendBaseUrl;
