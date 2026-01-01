@@ -4,20 +4,20 @@
 
 ### Authentication Endpoints
 
-| Endpoint | Method | Purpose | Auth | Rate Limit |
-|----------|--------|---------|------|-----------|
-| `/api/auth/login` | POST | Login with Clerk session token | ❌ | 10/min |
-| `/api/auth/token` | POST | Refresh access token | ❌ | 10/min |
-| `/api/auth/logout` | POST | Clear session | ❌ | - |
-| `/api/auth/webhook` | POST | Clerk webhook events | Signature | - |
-| `/api/auth/me` | GET | Get current user | Bearer | 100/min |
+| Endpoint            | Method | Purpose                        | Auth      | Rate Limit |
+| ------------------- | ------ | ------------------------------ | --------- | ---------- |
+| `/api/auth/login`   | POST   | Login with Clerk session token | ❌        | 10/min     |
+| `/api/auth/token`   | POST   | Refresh access token           | ❌        | 10/min     |
+| `/api/auth/logout`  | POST   | Clear session                  | ❌        | -          |
+| `/api/auth/webhook` | POST   | Clerk webhook events           | Signature | -          |
+| `/api/auth/me`      | GET    | Get current user               | Bearer    | 100/min    |
 
 ### Protected Endpoints
 
-| Endpoint | Method | Purpose | Auth | Rate Limit |
-|----------|--------|---------|------|-----------|
-| `/api/v1/audit` | POST | Audit formulas | Bearer | 100/min |
-| `/api/v1/ingest` | POST | Upload policy docs | Bearer | 50/min |
+| Endpoint         | Method | Purpose            | Auth   | Rate Limit |
+| ---------------- | ------ | ------------------ | ------ | ---------- |
+| `/api/v1/audit`  | POST   | Audit formulas     | Bearer | 100/min    |
+| `/api/v1/ingest` | POST   | Upload policy docs | Bearer | 50/min     |
 
 ## Token Flow
 
@@ -260,6 +260,7 @@ REDIS_URL=redis://localhost:6379
 ## Database Schema (Auth)
 
 ### users table
+
 ```sql
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
@@ -274,6 +275,7 @@ CREATE TABLE users (
 ```
 
 ### organizations table
+
 ```sql
 CREATE TABLE organizations (
   id TEXT PRIMARY KEY,
@@ -287,6 +289,7 @@ CREATE TABLE organizations (
 ```
 
 ### auth_sessions table
+
 ```sql
 CREATE TABLE auth_sessions (
   id TEXT PRIMARY KEY,

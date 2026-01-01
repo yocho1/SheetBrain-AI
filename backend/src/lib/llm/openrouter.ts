@@ -97,25 +97,41 @@ Respond in JSON format for each formula.`;
   const userPrompt = `Audit these formulas:\n\n${formulas.map((f, i) => `${i + 1}. ${f}`).join('\n')}\n\nRespond with a JSON array of audit results.`;
 
   try {
-    const response = await openrouter.messages.create({
-      model: DEFAULT_MODEL,
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+        'X-Title': 'SheetBrain',
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+      }),
     });
 
-    const content = response.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type from OpenRouter');
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json() as any;
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      throw new Error('No content in OpenRouter response');
     }
 
     // Parse JSON response
-    const jsonMatch = content.text.match(/\[[\s\S]*\]/);
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
       throw new Error('Could not parse JSON from OpenRouter response');
     }
@@ -124,6 +140,9 @@ Respond in JSON format for each formula.`;
     return results;
   } catch (error) {
     console.error('OpenRouter audit error:', error);
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+    }
     throw error;
   }
 }
@@ -137,32 +156,42 @@ export async function generateRecommendations(
   reason: string
 ): Promise<string> {
   try {
-    const response = await openrouter.messages.create({
-      model: DEFAULT_MODEL,
-      max_tokens: 1000,
-      messages: [
-        {
-          role: 'user',
-          content: `Given this spreadsheet formula and policy violation, provide a corrected formula that complies with the policy.
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+        'X-Title': 'SheetBrain',
+      },
+      body: JSON.stringify({
+        model: DEFAULT_MODEL,
+        max_tokens: 1000,
+        messages: [
+          {
+            role: 'user',
+            content: `Given this spreadsheet formula and policy violation, provide a corrected formula that complies with the policy.
 
 Formula: ${formula}
 Policy: ${policy}
 Violation Reason: ${reason}
 
 Provide only the corrected formula without explanation.`,
-        },
-      ],
+          },
+        ],
+      }),
     });
 
-    const content = response.content[0];
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type');
+    if (!response.ok) {
+      console.warn('Failed to generate recommendation:', response.statusText);
+      return formula;
     }
 
-    return content.text.trim();
+    const data = await response.json() as any;
+    return data.choices?.[0]?.message?.content?.trim() || formula;
   } catch (error) {
     console.error('OpenRouter recommendation error:', error);
-    throw error;
+    return formula;
   }
 }
 

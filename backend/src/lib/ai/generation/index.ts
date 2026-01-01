@@ -83,7 +83,7 @@ interface GenerationContext {
 }
 
 /**
- * Generates audit analysis for a formula using Claude
+ * Generates audit analysis for a formula using Claude via OpenRouter
  */
 export async function generateAuditAnalysis(context: GenerationContext): Promise<AuditResult> {
   const prompt = AUDIT_PROMPT_TEMPLATE
@@ -95,16 +95,17 @@ export async function generateAuditAnalysis(context: GenerationContext): Promise
     .replace('{{sampleData}}', JSON.stringify(context.sampleData));
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer': process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+        'X-Title': 'SheetBrain AI',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 2048,
+        model: 'anthropic/claude-3.5-sonnet',
+        max_tokens: 1000,
         messages: [
           {
             role: 'user',
@@ -115,11 +116,12 @@ export async function generateAuditAnalysis(context: GenerationContext): Promise
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
     const data = await response.json();
-    const content = data.content[0].text;
+    const content = data.choices?.[0]?.message?.content;
 
     // Parse JSON response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -191,15 +193,16 @@ Format your response as a JSON array of objects with:
 - priority: high|medium|low`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY!,
-        'anthropic-version': '2023-06-01',
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'HTTP-Referer': process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000',
+        'X-Title': 'SheetBrain AI',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'anthropic/claude-3.5-sonnet',
         max_tokens: 1024,
         messages: [
           {
@@ -210,8 +213,13 @@ Format your response as a JSON array of objects with:
       }),
     });
 
+    if (!response.ok) {
+      console.warn('Failed to generate alternatives:', response.statusText);
+      return [];
+    }
+
     const data = await response.json();
-    const content = data.content[0].text;
+    const content = data.choices?.[0]?.message?.content;
 
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     return jsonMatch ? JSON.parse(jsonMatch[0]) : [];

@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit } from '@/lib/auth/rate-limit';
 import { addPolicy } from '@/lib/policies/store';
+import { ingestDocument } from '@/lib/ai/retrieval';
 
 /**
  * POST /api/ingest
@@ -80,6 +81,19 @@ export async function POST(request: NextRequest) {
       tags,
       source: 'upload',
     });
+
+    // Persist to vector store for RAG (best-effort)
+    try {
+      await ingestDocument(content, {
+        orgId,
+        title,
+        department,
+        tags,
+        source: 'upload',
+      });
+    } catch (err) {
+      console.warn('Vector ingestion failed; continuing with in-memory policy only', err);
+    }
 
     return NextResponse.json(
       {

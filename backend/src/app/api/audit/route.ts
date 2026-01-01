@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auditFormulas } from '@/lib/llm/openrouter';
+import { retrieveRelevantContext } from '@/lib/ai/retrieval';
 import { listPolicies, seedDefaultPolicies } from '@/lib/policies/store';
 
 interface SheetContext {
@@ -56,6 +57,10 @@ function extractFormulas(context: SheetContext, range: string) {
   const collected: Array<{ cell: string; formula: string }> = [];
 
   matrix.forEach((row, rowIdx) => {
+    if (!Array.isArray(row)) {
+      console.warn('Expected row to be an array, got:', typeof row);
+      return;
+    }
     row.forEach((cellFormula, colIdx) => {
       if (cellFormula && typeof cellFormula === 'string' && cellFormula.startsWith('=')) {
         const cellAddress = `${indexToColLetters(startCol + colIdx)}${startRow + rowIdx}`;
@@ -112,6 +117,24 @@ export async function POST(request: NextRequest) {
     const policiesText = buildPoliciesText(orgId);
     const auditContext = `Organization: ${context.organization || 'Unknown'}\nDepartment: ${context.department || 'N/A'}\nSheet: ${context.sheetName || 'N/A'} (${context.range || range})\nPurpose: ${context.sheetPurpose || 'Not provided'}`;
 
+    // RAG: retrieve supporting context from vector store
+    let retrievedText = '';
+    try {
+      const ragResults = await retrieveRelevantContext(formulasWithCells.map((f) => f.formula).join('\n'), {
+        orgId,
+        topK: 8,
+        minConfidence: 0.55,
+      } as any);
+
+      if (ragResults.length > 0) {
+        retrievedText = ragResults
+          .map((c, idx) => `Context ${idx + 1}: ${c.content}`)
+          .join('\n');
+      }
+    } catch (err) {
+      console.warn('RAG retrieval failed; continuing without external context', err);
+    }
+
     // Audit formulas using OpenRouter
     const strictAudit = process.env.STRICT_AUDIT === 'true';
     let auditResults = [] as Awaited<ReturnType<typeof auditFormulas>>;
@@ -120,7 +143,7 @@ export async function POST(request: NextRequest) {
       auditResults = await auditFormulas({
         formulas: formulasWithCells.map((f) => f.formula),
         policies: policiesText,
-        context: auditContext,
+        context: `${auditContext}${retrievedText ? `\n\nRetrieved Context:\n${retrievedText}` : ''}`,
       });
     } catch (err) {
       console.error('OpenRouter error:', err);
