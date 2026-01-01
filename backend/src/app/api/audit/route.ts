@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     const policiesText = buildPoliciesText(orgId);
     const auditContext = `Organization: ${context.organization || 'Unknown'}\nDepartment: ${context.department || 'N/A'}\nSheet: ${context.sheetName || 'N/A'} (${context.range || range})\nPurpose: ${context.sheetPurpose || 'Not provided'}`;
 
-    // RAG: retrieve supporting context from vector store
+    // RAG: retrieve supporting context from vector store (best-effort, skip on OpenAI errors)
     let retrievedText = '';
     try {
       const ragResults = await retrieveRelevantContext(formulasWithCells.map((f) => f.formula).join('\n'), {
@@ -132,7 +132,13 @@ export async function POST(request: NextRequest) {
           .join('\n');
       }
     } catch (err) {
-      console.warn('RAG retrieval failed; continuing without external context', err);
+      // OpenAI quota/API errors are expected during free tier; silently continue without RAG
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('insufficient')) {
+        console.warn('OpenAI API quota exceeded; continuing without RAG context');
+      } else {
+        console.warn('RAG retrieval failed; continuing without external context', err);
+      }
     }
 
     // Audit formulas using OpenRouter
