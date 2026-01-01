@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auditFormulas } from '@/lib/llm/openrouter';
 import { retrieveRelevantContext } from '@/lib/ai/retrieval';
 import { listPolicies, seedDefaultPolicies } from '@/lib/policies/store';
+import { rateLimit, checkQuota } from '@/lib/auth/rate-limit';
+import { recordAuditUsage } from '@/lib/billing/stripe';
 
 interface SheetContext {
   sheetName?: string;
@@ -95,6 +97,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check rate limiting
+    const rateLimitResponse = await rateLimit(request);
+    if (rateLimitResponse) {
+      return rateLimitResponse;
+    }
+
+    // Check subscription quota
+    const quotaResponse = await checkQuota(orgId);
+    if (quotaResponse) {
+      return quotaResponse;
+    }
+
     const body = await request.json();
     const { range, context } = body as { range?: string; context?: SheetContext };
 
@@ -165,6 +179,13 @@ export async function POST(request: NextRequest) {
         issues: Math.random() > 0.5 ? ['Potential performance issue'] : [],
         recommendations: ['Consider using SUMIF for better performance'],
       }));
+    }
+
+    // Record usage for billing
+    try {
+      await recordAuditUsage(orgId);
+    } catch (err) {
+      console.warn('Failed to record audit usage:', err);
     }
 
     return NextResponse.json(

@@ -1,8 +1,10 @@
 /**
  * Rate limiting middleware (dev-safe, in-memory fallback).
+ * Enforces per-org rate limits and subscription quotas.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getSubscription, hasQuotaRemaining } from '@/lib/billing/stripe';
 
 interface RateLimitConfig {
   requests: number;
@@ -35,7 +37,7 @@ function getBucket(key: string, windowMs: number) {
 }
 
 /**
- * Rate limit middleware
+ * Rate limit middleware (per-org, per-window)
  */
 export async function rateLimit(
   request: NextRequest,
@@ -43,12 +45,12 @@ export async function rateLimit(
 ): Promise<NextResponse | null> {
   if (!RATE_LIMIT_ENABLED) return null;
 
-  const userId = request.headers.get('x-user-id');
-  if (!userId) {
+  const orgId = request.headers.get('x-user-org');
+  if (!orgId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const key = `rate_limit:${userId}`;
+  const key = `rate_limit:${orgId}`;
   const bucket = getBucket(key, config.window);
   bucket.count += 1;
 
@@ -68,6 +70,33 @@ export async function rateLimit(
   }
 
   return null; // Allow request
+}
+
+/**
+ * Check subscription quota for an organization
+ * Returns 429 if quota exceeded, null if allowed
+ */
+export async function checkQuota(orgId: string): Promise<NextResponse | null> {
+  try {
+    const hasQuota = await hasQuotaRemaining(orgId);
+    if (!hasQuota) {
+      const sub = await getSubscription(orgId);
+      return NextResponse.json(
+        {
+          error: 'Usage quota exceeded',
+          plan: sub.plan,
+          limit: sub.quotaLimit,
+          used: sub.usageThisMonth,
+          message: `Your ${sub.plan} plan allows ${sub.quotaLimit} audits/month. Upgrade to continue.`,
+        },
+        { status: 429 }
+      );
+    }
+  } catch (err) {
+    console.warn('Failed to check quota:', err);
+    // Fail open on error (allow request)
+  }
+  return null;
 }
 
 /**
