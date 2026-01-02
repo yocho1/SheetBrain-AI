@@ -89,6 +89,7 @@ function buildPoliciesText(orgId: string) {
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
+  let ragResults: Array<{ content: string; score?: number }> = [];
 
   try {
     const userId = request.headers.get('x-user-id');
@@ -165,7 +166,7 @@ export async function POST(request: NextRequest) {
     // RAG: retrieve supporting context from vector store (best-effort, skip on OpenAI errors)
     let retrievedText = '';
     try {
-      const ragResults = await retrieveRelevantContext(formulasWithCells.map((f) => f.formula).join('\n'), {
+      ragResults = await retrieveRelevantContext(formulasWithCells.map((f) => f.formula).join('\n'), {
         orgId,
         topK: 8,
         minConfidence: 0.55,
