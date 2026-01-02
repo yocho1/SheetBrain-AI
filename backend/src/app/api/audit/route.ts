@@ -9,6 +9,7 @@ import { retrieveRelevantContext } from '@/lib/ai/retrieval';
 import { listPolicies, seedDefaultPolicies } from '@/lib/policies/store';
 import { rateLimit, checkQuota } from '@/lib/auth/rate-limit';
 import { recordAuditUsage } from '@/lib/billing/stripe';
+import { logAudit, logApiRequest, logError, trackAudit, addBreadcrumb, setUser } from '@/lib/monitoring';
 
 interface SheetContext {
   sheetName?: string;
@@ -92,20 +93,50 @@ export async function POST(request: NextRequest) {
   try {
     const userId = request.headers.get('x-user-id');
     const orgId = request.headers.get('x-user-org');
+    const userEmail = request.headers.get('x-user-email');
 
     if (!userId || !orgId) {
+      await logApiRequest({
+        method: 'POST',
+        path: '/api/audit',
+        statusCode: 401,
+        duration: Date.now() - startTime,
+        error: 'Unauthorized',
+      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // Set user context for error tracking
+    setUser(userId, userEmail || undefined, orgId);
+    addBreadcrumb('Audit request started', { userId, orgId });
 
     // Check rate limiting
     const rateLimitResponse = await rateLimit(request);
     if (rateLimitResponse) {
+      await logApiRequest({
+        method: 'POST',
+        path: '/api/audit',
+        userId,
+        orgId,
+        statusCode: 429,
+        duration: Date.now() - startTime,
+        error: 'Rate limit exceeded',
+      });
       return rateLimitResponse;
     }
 
     // Check subscription quota
     const quotaResponse = await checkQuota(orgId);
     if (quotaResponse) {
+      await logApiRequest({
+        method: 'POST',
+        path: '/api/audit',
+        userId,
+        orgId,
+        statusCode: 429,
+        duration: Date.now() - startTime,
+        error: 'Quota exceeded',
+      });
       return quotaResponse;
     }
 
@@ -188,6 +219,44 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to record audit usage:', err);
     }
 
+    const duration = Date.now() - startTime;
+    const issuesFound = auditResults.filter((r) => !r.compliant).length;
+    const compliantCount = auditResults.filter((r) => r.compliant).length;
+
+    // Count severity levels
+    const severityCounts = { critical: 0, high: 0, medium: 0, low: 0 };
+    auditResults.forEach((r) => {
+      if (r.risk === 'high') severityCounts.high++;
+      else if (r.risk === 'medium') severityCounts.medium++;
+      else if (r.risk === 'low') severityCounts.low++;
+    });
+
+    // Log audit event to Axiom
+    await logAudit({
+      userId,
+      orgId,
+      formulaCount: auditResults.length,
+      issuesFound,
+      severity: severityCounts,
+      duration,
+      ragUsed: retrievedText.length > 0,
+      ragContextCount: ragResults?.length || 0,
+      success: true,
+    });
+
+    // Track audit event in PostHog
+    await trackAudit(userId, orgId, auditResults.length, issuesFound, duration);
+
+    // Log API request
+    await logApiRequest({
+      method: 'POST',
+      path: '/api/audit',
+      userId,
+      orgId,
+      statusCode: 200,
+      duration,
+    });
+
     return NextResponse.json(
       {
         success: true,
@@ -196,14 +265,37 @@ export async function POST(request: NextRequest) {
           ...result,
         })),
         count: auditResults.length,
-        compliant: auditResults.filter((r) => r.compliant).length,
+        compliant: compliantCount,
         timestamp: new Date().toISOString(),
-        duration: Date.now() - startTime,
+        duration,
       },
       { status: 200 }
     );
   } catch (error) {
+    const duration = Date.now() - startTime;
     console.error('Audit error:', error);
+
+    // Log error to monitoring
+    const userId = request.headers.get('x-user-id') || 'unknown';
+    const orgId = request.headers.get('x-user-org') || 'unknown';
+    
+    await logError(error, {
+      endpoint: '/api/audit',
+      userId,
+      orgId,
+      duration,
+    });
+
+    await logApiRequest({
+      method: 'POST',
+      path: '/api/audit',
+      userId,
+      orgId,
+      statusCode: 500,
+      duration,
+      error: error instanceof Error ? error.message : 'Audit failed',
+    });
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Audit failed' },
       { status: 500 }
