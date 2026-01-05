@@ -45,14 +45,12 @@ export async function POST(request: NextRequest) {
 
     let title = 'Uploaded policy';
     let content = '';
-    let department = 'general';
-    let tags: string[] = [];
+    let category: string | undefined;
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       const file = formData.get('file') as File;
-      department = (formData.get('department') as string) || 'general';
-      tags = JSON.parse((formData.get('tags') as string) || '[]');
+      category = (formData.get('category') as string) || undefined;
 
       if (!file) {
         return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -78,8 +76,7 @@ export async function POST(request: NextRequest) {
 
       title = json.title || 'Uploaded policy';
       content = json.content;
-      department = json.department || 'general';
-      tags = json.tags || [];
+      category = json.category;
     }
 
     if (!content || content.trim().length === 0) {
@@ -89,8 +86,7 @@ export async function POST(request: NextRequest) {
     const policy = await addPolicy(orgId, {
       title,
       content,
-      department,
-      tags,
+      category: json.category,
       source: 'upload',
     });
 
