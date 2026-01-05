@@ -53,15 +53,17 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      // At this point, user is guaranteed to be defined
+      const userData = user as any;
       return NextResponse.json(
         {
           user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            organization: user.organizations,
-            createdAt: user.created_at,
+            id: userData.id,
+            email: userData.email,
+            name: userData.name,
+            role: userData.role,
+            organization: userData.organizations,
+            createdAt: userData.created_at,
           },
         },
         { status: 200 }
