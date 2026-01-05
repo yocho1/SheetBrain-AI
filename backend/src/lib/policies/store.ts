@@ -32,7 +32,8 @@ export interface PolicyInput {
  * List all policies for an organization
  */
 export async function listPolicies(orgId: string): Promise<Policy[]> {
-  const { data, error } = await supabase
+  if (!supabase) return [];
+  const { data, error } = await (supabase as any)
     .from('policies')
     .select('*')
     .eq('organization_id', orgId)
@@ -85,7 +86,8 @@ export async function addPolicy(orgId: string, input: PolicyInput): Promise<Poli
     source: input.source,
   };
 
-  const { data, error } = await supabase
+  if (!supabase) throw new Error('Database not available');
+  const { data, error } = await (supabase as any)
     .from('policies')
     .insert(policyData)
     .select()
@@ -114,7 +116,8 @@ export async function addPolicy(orgId: string, input: PolicyInput): Promise<Poli
  * Get a single policy by ID
  */
 export async function getPolicy(orgId: string, policyId: string): Promise<Policy | null> {
-  const { data, error } = await supabase
+  if (!supabase) return null;
+  const { data, error } = await (supabase as any)
     .from('policies')
     .select('*')
     .eq('id', policyId)
@@ -147,7 +150,8 @@ export async function updatePolicy(
   policyId: string,
   updates: Partial<PolicyInput>
 ): Promise<Policy> {
-  const { data, error } = await supabase
+  if (!supabase) throw new Error('Database not available');
+  const { data, error } = await (supabase as any)
     .from('policies')
     .update({
       ...updates,
@@ -181,7 +185,8 @@ export async function updatePolicy(
  * Delete a policy
  */
 export async function deletePolicy(orgId: string, policyId: string): Promise<boolean> {
-  const { error } = await supabase
+  if (!supabase) return false;
+  const { error } = await (supabase as any)
     .from('policies')
     .delete()
     .eq('id', policyId)
@@ -227,7 +232,8 @@ export async function seedDefaultPolicies(orgId: string): Promise<void> {
  * Search policies by keyword
  */
 export async function searchPolicies(orgId: string, keyword: string): Promise<Policy[]> {
-  const { data, error } = await supabase
+  if (!supabase) return [];
+  const { data, error } = await (supabase as any)
     .from('policies')
     .select('*')
     .eq('organization_id', orgId)
@@ -238,6 +244,19 @@ export async function searchPolicies(orgId: string, keyword: string): Promise<Po
     console.error('Failed to search policies:', error);
     return [];
   }
+
+  type PolicyRow = {
+    id: string;
+    organization_id: string;
+    title: string;
+    content: string;
+    category?: string;
+    department?: string;
+    tags?: string[];
+    created_at: string;
+    updated_at?: string;
+    source?: string;
+  };
 
   return (data || []).map((row: PolicyRow) => ({
     id: row.id,

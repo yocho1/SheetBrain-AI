@@ -92,11 +92,12 @@ export async function retrieveRelevantContext(
     };
 
     const seen = new Map<string, MatchRecord>();
-    combinedResults.forEach((r: MatchRecord) => {
-      if (!r?.id) return;
-      const existing = seen.get(r.id);
-      if (!existing || (r.score || 0) > (existing.score || 0)) {
-        seen.set(r.id, r);
+    combinedResults.forEach((r: unknown) => {
+      const record = r as MatchRecord;
+      if (!record?.id) return;
+      const existing = seen.get(record.id);
+      if (!existing || (record.score || 0) > (existing.score || 0)) {
+        seen.set(record.id, record);
       }
     });
 
@@ -111,7 +112,7 @@ export async function retrieveRelevantContext(
         content: (match.metadata?.content as string) || '',
         embedding: match.values || [],
         metadata: match.metadata || {},
-      }));
+      })) as DocumentChunk[];
 
     return chunks;
   } catch (error) {

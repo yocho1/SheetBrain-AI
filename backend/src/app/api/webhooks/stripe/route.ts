@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     await handleWebhookEvent(event);
 
     // Log billing event
-    const eventData = event.data.object as Stripe.Event.Data.Object;
+    const eventData = event.data.object as any;
     await logBilling({
       orgId: eventData.metadata?.orgId || 'unknown',
       event: event.type,

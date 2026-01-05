@@ -37,7 +37,8 @@ export async function getOrCreateCustomer(
   name: string
 ): Promise<string> {
   // Check database first
-  const { data: existing } = await supabase
+  if (!supabase) throw new Error('Database not available');
+  const { data: existing } = await (supabase as any)
     .from('subscriptions')
     .select('stripe_customer_id')
     .eq('organization_id', orgId)
@@ -55,7 +56,7 @@ export async function getOrCreateCustomer(
   });
 
   // Save to database
-  await supabase
+  await (supabase as any)
     .from('subscriptions')
     .upsert({
       organization_id: orgId,
@@ -120,7 +121,8 @@ export async function createSubscription(
   }
 
   // Save to database
-  const { data, error } = await supabase
+  if (!supabase) throw new Error('Database not available');
+  const { data, error } = await (supabase as any)
     .from('subscriptions')
     .upsert(subscriptionData, { onConflict: 'organization_id' })
     .select()
@@ -130,7 +132,7 @@ export async function createSubscription(
 
   // Get usage for this month
   const monthYear = new Date().toISOString().slice(0, 7);
-  const { data: usage } = await supabase
+  const { data: usage } = await (supabase as any)
     .from('audit_usage')
     .select('count')
     .eq('organization_id', orgId)
@@ -154,7 +156,8 @@ export async function createSubscription(
  */
 export async function getSubscription(orgId: string): Promise<SubscriptionStatus> {
   // Query database
-  const { data: sub } = await supabase
+  if (!supabase) throw new Error('Database not available');
+  const { data: sub } = await (supabase as any)
     .from('subscriptions')
     .select('*')
     .eq('organization_id', orgId)
@@ -162,7 +165,7 @@ export async function getSubscription(orgId: string): Promise<SubscriptionStatus
 
   // Get current month usage
   const monthYear = new Date().toISOString().slice(0, 7);
-  const { data: usage } = await supabase
+  const { data: usage } = await (supabase as any)
     .from('audit_usage')
     .select('count')
     .eq('organization_id', orgId)
@@ -202,7 +205,8 @@ export async function recordAuditUsage(orgId: string): Promise<void> {
   const monthYear = new Date().toISOString().slice(0, 7); // YYYY-MM
 
   // Increment usage in database
-  const { data: existing } = await supabase
+  if (!supabase) throw new Error('Database not available');
+  const { data: existing } = await (supabase as any)
     .from('audit_usage')
     .select('count')
     .eq('organization_id', orgId)
@@ -210,7 +214,7 @@ export async function recordAuditUsage(orgId: string): Promise<void> {
     .single();
 
   if (existing) {
-    await supabase
+    await (supabase as any)
       .from('audit_usage')
       .update({ 
         count: existing.count + 1,
@@ -219,7 +223,7 @@ export async function recordAuditUsage(orgId: string): Promise<void> {
       .eq('organization_id', orgId)
       .eq('month_year', monthYear);
   } else {
-    await supabase
+    await (supabase as any)
       .from('audit_usage')
       .insert({
         organization_id: orgId,
@@ -277,8 +281,8 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
     case 'customer.subscription.created': {
       const subscription = event.data.object as Stripe.Subscription;
       const orgId = subscription.metadata?.orgId;
-      if (orgId) {
-        await supabase
+      if (orgId && supabase) {
+        await (supabase as any)
           .from('subscriptions')
           .update({
             stripe_subscription_id: subscription.id,
@@ -295,8 +299,8 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
     case 'customer.subscription.deleted': {
       const subscription = event.data.object as Stripe.Subscription;
       const orgId = subscription.metadata?.orgId;
-      if (orgId) {
-        await supabase
+      if (orgId && supabase) {
+        await (supabase as any)
           .from('subscriptions')
           .update({
             status: 'canceled',
@@ -312,8 +316,8 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
     case 'invoice.payment_failed': {
       const invoice = event.data.object as Stripe.Invoice;
       const orgId = invoice.metadata?.orgId;
-      if (orgId) {
-        await supabase
+      if (orgId && supabase) {
+        await (supabase as any)
           .from('subscriptions')
           .update({
             status: 'past_due',

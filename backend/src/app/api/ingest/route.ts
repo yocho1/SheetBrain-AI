@@ -117,22 +117,27 @@ export async function POST(request: NextRequest) {
     try {
       const { supabase } = await import('@/lib/db');
       
+      if (!supabase) {
+        console.warn('Supabase not configured - skipping ingestion log');
+        return NextResponse.json({ success: true, policyId: title });
+      }
+      
       // Get user UUID from clerk_user_id
-      const { data: user } = await supabase
+      const { data: user } = await (supabase as any)
         .from('users')
         .select('id')
         .eq('clerk_user_id', userId)
         .single();
 
       // Get organization UUID from clerk_org_id  
-      const { data: org } = await supabase
+      const { data: org } = await (supabase as any)
         .from('organizations')
         .select('id')
         .eq('clerk_org_id', orgId)
         .single();
 
       if (org) {
-        await supabase.from('ingestion_logs').insert({
+        await (supabase as any).from('ingestion_logs').insert({
           organization_id: org.id,
           user_id: user?.id || null,
           policy_id: policy.id,

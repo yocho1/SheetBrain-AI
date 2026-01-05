@@ -258,9 +258,10 @@ function applySuggestion(cellAddress: string, newFormula: string) {
       message: `Formula applied to ${cellAddress}`,
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return {
       success: false,
-      message: error.message,
+      message: errorMessage,
     };
   }
 }
@@ -312,7 +313,8 @@ function auditFormulas() {
 
     return result;
   } catch (error) {
-    Logger.log('Audit error: ' + error.message);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    Logger.log('Audit error: ' + errorMessage);
     throw error;
   }
 }
@@ -367,7 +369,8 @@ function uploadPolicy() {
       ui.alert('Error', 'Failed to upload policy', ui.ButtonSet.OK);
     }
   } catch (error) {
-    ui.alert('Error', error.message, ui.ButtonSet.OK);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    ui.alert('Error', errorMessage, ui.ButtonSet.OK);
   }
 }
 

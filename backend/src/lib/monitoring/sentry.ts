@@ -57,7 +57,7 @@ export function captureError(
   if (error instanceof Error) {
     Sentry.captureException(error);
   } else {
-    Sentry.captureMessage(String(error), 'error');
+    Sentry.captureMessage(String(error), { level: 'error' });
   }
 }
 

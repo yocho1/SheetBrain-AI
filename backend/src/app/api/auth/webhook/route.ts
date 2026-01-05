@@ -47,6 +47,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Import supabase once at handler level
+  const { supabase } = await import('@/lib/db');
+  if (!supabase) {
+    return NextResponse.json(
+      { error: 'Database not configured' },
+      { status: 500 }
+    );
+  }
+
   const svixHeaders = {
     'svix-id': request.headers.get('svix-id') || '',
     'svix-timestamp': request.headers.get('svix-timestamp') || '',
@@ -89,12 +98,6 @@ export async function POST(request: NextRequest) {
     // Handle user deletion
     if (evt.type === 'user.deleted') {
       const userId = evt.data.id;
-      const { supabase } = await import('@/lib/db');
-      
-      if (!supabase) {
-        throw new Error('Supabase not configured');
-      }
-      
       // Soft delete or hard delete user from database
       await supabase
         .from('users')
@@ -118,12 +121,6 @@ export async function POST(request: NextRequest) {
     // Handle organization deletion
     if (evt.type === 'organization.deleted') {
       const orgId = evt.data.id;
-      const { supabase } = await import('@/lib/db');
-      
-      if (!supabase) {
-        throw new Error('Supabase not configured');
-      }
-      
       // Cascade delete organization (will delete related data)
       await supabase
         .from('organizations')
@@ -140,19 +137,14 @@ export async function POST(request: NextRequest) {
       const orgId = membership.organization?.id;
       
       if (userId && orgId) {
-        const { supabase } = await import('@/lib/db');
-        
-        if (!supabase) {
-          throw new Error('Supabase not configured');
-        }
-        
         // Update user's organization
-        await supabase
+        const updatePayload = {
+          organization_id: orgId,
+          updated_at: new Date().toISOString()
+        };
+        await (supabase as any)
           .from('users')
-          .update({ 
-            organization_id: orgId,
-            updated_at: new Date().toISOString()
-          })
+          .update(updatePayload)
           .eq('clerk_user_id', userId);
         
         console.warn(`User ${userId} membership updated for org ${orgId}`);

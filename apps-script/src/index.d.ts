@@ -1,27 +1,52 @@
 /**
  * Google Sheets Add-on entry point
- * Initializes the sidebar UI and manages authentication
+ * SheetBrain AI - Intelligent Formula Auditor
  */
-declare function getBackendBaseUrl(): string;
-declare function setBackendBaseUrl(url: string): void;
+declare const CONFIG: {
+    BACKEND_URL: string;
+    API_VERSION: string;
+    TIMEOUT_MS: number;
+};
+declare const scriptProperties: GoogleAppsScript.Properties.Properties;
+declare const userProperties: GoogleAppsScript.Properties.Properties;
 /**
- * Fetch a backend JWT (dev/debug helper)
+ * Get or create authentication token
  */
-declare function getBackendToken(): string;
+declare function getAuthToken(): string;
 /**
- * Creates the sidebar panel when user opens the add-on
+ * Authenticate user with backend
  */
-declare function onHomepage(): void;
+declare function authenticateUser(): string;
 /**
- * Initializes the add-on when document opens
+ * Clear authentication
+ */
+declare function logout(): void;
+/**
+ * Initialize add-on when spreadsheet opens
  */
 declare function onOpen(): void;
 /**
- * Shows the audit sidebar
+ * Install trigger for onOpen
  */
-declare function showSidebar(): void;
+declare function onInstall(): void;
 /**
- * Gets the currently selected range from the active sheet
+ * Show audit sidebar
+ */
+declare function showAuditSidebar(): void;
+/**
+ * Show settings dialog
+ */
+declare function showSettings(): void;
+/**
+ * Save user settings
+ */
+declare function saveUserSettings(orgId: string, backendUrl: string): void;
+/**
+ * Show help documentation
+ */
+declare function showHelp(): void;
+/**
+ * Get selected range data
  */
 declare function getSelectedRange(): {
     sheetName: string;
@@ -31,34 +56,43 @@ declare function getSelectedRange(): {
     formulas: string[][];
 };
 /**
- * Gets the current sheet context for auditing
+ * Get full sheet context for audit
  */
 declare function getSheetContext(): {
     sheetName: string;
     sheetId: number;
     spreadsheetId: string;
+    spreadsheetName: string;
     range: string;
     data: {
         values: any[][];
         formulas: string[][];
-        backgrounds: string[][];
-        fontColors: string[][];
     };
+    formulas: string[][];
+    organization: string;
+    department: string;
 };
 /**
- * Applies a suggested formula improvement to the selected range
+ * Apply formula suggestion to cell
  */
-declare function applySuggestion(newFormula: string, cellAddress: string): {
+declare function applySuggestion(cellAddress: string, newFormula: string): {
     success: boolean;
     message: string;
 };
 /**
- * Opens the documentation
+ * Highlight cells based on risk level
  */
-declare function openDocumentation(): void;
+declare function highlightCells(results: any[]): void;
 /**
- * Shows settings dialog
+ * Audit formulas with backend API
  */
-declare function showSettings(): void;
-export { onOpen, onHomepage, showSidebar, getSelectedRange, getSheetContext, applySuggestion, openDocumentation, showSettings, getBackendBaseUrl, setBackendBaseUrl, getBackendToken, };
+declare function auditFormulas(): any;
+/**
+ * Upload policy document
+ */
+declare function uploadPolicy(): void;
+/**
+ * Get audit results (called from sidebar)
+ */
+declare function getAuditResults(): any;
 //# sourceMappingURL=index.d.ts.map

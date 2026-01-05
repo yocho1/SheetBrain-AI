@@ -23,7 +23,8 @@ export const supabase = supabaseClient;
  * Get user profile with organization
  */
 export async function getUserWithOrganization(userId: string) {
-  const { data, error } = await supabase
+  if (!supabase) throw new Error('Database not available');
+  const { data, error } = await (supabase as any)
     .from('users')
     .select(
       `
@@ -50,7 +51,8 @@ export async function getUserWithOrganization(userId: string) {
  * Get user usage statistics
  */
 export async function getUserUsage(userId: string) {
-  const { data, error } = await supabase
+  if (!supabase) return null;
+  const { data, error } = await (supabase as any)
     .from('user_usage')
     .select('*')
     .eq('user_id', userId)
@@ -64,11 +66,12 @@ export async function getUserUsage(userId: string) {
  * Update audit count
  */
 export async function incrementAuditCount(userId: string) {
-  const { data, error } = await supabase
+  if (!supabase) return null;
+  const { data, error } = await (supabase as any)
     .from('user_usage')
     .update({
-      audits_this_month: supabase.rpc('increment', { 'x': 1 }),
-      audits_this_year: supabase.rpc('increment', { 'x': 1 }),
+      audits_this_month: (supabase as any).rpc('increment', { 'x': 1 }),
+      audits_this_year: (supabase as any).rpc('increment', { 'x': 1 }),
       last_audit_at: new Date().toISOString(),
     })
     .eq('user_id', userId);
@@ -81,7 +84,8 @@ export async function incrementAuditCount(userId: string) {
  * Save audit result
  */
 export async function saveAuditResult(auditData: Record<string, unknown>) {
-  const { data, error } = await supabase
+  if (!supabase) return null;
+  const { data, error } = await (supabase as any)
     .from('audit_results')
     .insert([auditData]);
 
@@ -93,7 +97,8 @@ export async function saveAuditResult(auditData: Record<string, unknown>) {
  * Get audit history
  */
 export async function getAuditHistory(userId: string, limit = 10) {
-  const { data, error } = await supabase
+  if (!supabase) return [];
+  const { data, error } = await (supabase as any)
     .from('audit_results')
     .select('*')
     .eq('user_id', userId)
@@ -108,10 +113,11 @@ export async function getAuditHistory(userId: string, limit = 10) {
  * Create or update API key
  */
 export async function createApiKey(userId: string, name: string, expiresAt?: Date) {
+  if (!supabase) throw new Error('Database not available');
   const key = `sb_${Math.random().toString(36).substr(2, 32)}`;
   const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('api_keys')
     .insert([
       {
@@ -137,7 +143,7 @@ export async function createApiKey(userId: string, name: string, expiresAt?: Dat
 export async function upsertOrganization(clerkOrgId: string, name?: string) {
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('organizations')
     .upsert(
       { clerk_org_id: clerkOrgId, name: name || clerkOrgId },
@@ -165,7 +171,7 @@ export async function upsertClerkUser(clerkUserId: string, email: string, name?:
     orgId = org?.id || null;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('users')
     .upsert(
       { clerk_user_id: clerkUserId, email, name, organization_id: orgId },
@@ -187,7 +193,7 @@ export async function upsertClerkUser(clerkUserId: string, email: string, name?:
 export async function getOrganizationByClerkId(clerkOrgId: string) {
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('organizations')
     .select('*')
     .eq('clerk_org_id', clerkOrgId)
@@ -209,7 +215,7 @@ export async function getOrganizationByClerkId(clerkOrgId: string) {
 export async function getSubscriptionFromDB(orgId: string) {
   if (!supabase) return null;
 
-  const { data } = await supabase
+  const { data } = await (supabase as any)
     .from('subscriptions')
     .select('*')
     .eq('organization_id', orgId)
@@ -224,7 +230,7 @@ export async function getSubscriptionFromDB(orgId: string) {
 export async function upsertSubscription(orgId: string, subscription: Record<string, unknown>) {
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('subscriptions')
     .upsert(
       { organization_id: orgId, ...subscription },
@@ -249,7 +255,7 @@ export async function getMonthlyAuditCount(orgId: string): Promise<number> {
   const now = new Date();
   const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('audit_usage')
     .select('count')
     .eq('organization_id', orgId)
@@ -273,7 +279,7 @@ export async function incrementAuditUsageDB(orgId: string) {
   const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const current = await getMonthlyAuditCount(orgId);
 
-  await supabase
+  await (supabase as any)
     .from('audit_usage')
     .upsert(
       {
@@ -296,7 +302,7 @@ export async function incrementAuditUsageDB(orgId: string) {
 export async function getRateLimitBucketDB(orgId: string) {
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('rate_limit_buckets')
     .select('*')
     .eq('organization_id', orgId)
@@ -304,7 +310,7 @@ export async function getRateLimitBucketDB(orgId: string) {
 
   if (error && error.code === 'PGRST116') {
     const resetTime = new Date(Date.now() + 60 * 1000);
-    const { data: newBucket } = await supabase
+    const { data: newBucket } = await (supabase as any)
       .from('rate_limit_buckets')
       .insert({
         organization_id: orgId,
@@ -335,7 +341,7 @@ export async function checkAndIncrementRequestCount(orgId: string): Promise<{ co
   // Reset window if expired
   if (now > resetTime) {
     const newResetTime = new Date(now.getTime() + 60 * 1000);
-    await supabase
+    await (supabase as any)
       .from('rate_limit_buckets')
       .update({
         request_count: 1,
@@ -347,7 +353,7 @@ export async function checkAndIncrementRequestCount(orgId: string): Promise<{ co
 
   // Increment count
   currentCount += 1;
-  await supabase
+  await (supabase as any)
     .from('rate_limit_buckets')
     .update({ request_count: currentCount })
     .eq('organization_id', orgId);
@@ -365,7 +371,7 @@ export async function checkAndIncrementRequestCount(orgId: string): Promise<{ co
 export async function addPolicyDB(orgId: string, title: string, content: string, category?: string) {
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('policies')
     .insert({
       organization_id: orgId,
@@ -389,7 +395,7 @@ export async function addPolicyDB(orgId: string, title: string, content: string,
 export async function getPoliciesDB(orgId: string) {
   if (!supabase) return [];
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('policies')
     .select('*')
     .eq('organization_id', orgId)
@@ -416,7 +422,7 @@ interface AuditLogInput {
 export async function logAuditToDB(orgId: string, userId: string | undefined, auditData: AuditLogInput) {
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('audit_logs')
     .insert({
       organization_id: orgId,

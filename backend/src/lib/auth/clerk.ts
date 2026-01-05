@@ -52,6 +52,10 @@ export interface ClerkUserPayload {
 
 export async function syncClerkUserToDatabase(clerkUser: ClerkUserPayload, orgId: string | null) {
   const { supabase } = await import('@/lib/db');
+  
+  if (!supabase) {
+    throw new Error('Supabase not configured');
+  }
 
   const userData = {
     clerk_user_id: clerkUser.id,
@@ -61,7 +65,7 @@ export async function syncClerkUserToDatabase(clerkUser: ClerkUserPayload, orgId
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('users')
     .upsert(userData, { onConflict: 'clerk_user_id' })
     .select();
@@ -85,6 +89,10 @@ export interface ClerkOrganizationPayload {
 
 export async function syncOrganizationToDatabase(clerkOrg: ClerkOrganizationPayload) {
   const { supabase } = await import('@/lib/db');
+  
+  if (!supabase) {
+    throw new Error('Supabase not configured');
+  }
 
   const orgData = {
     clerk_org_id: clerkOrg.id,
@@ -93,7 +101,7 @@ export async function syncOrganizationToDatabase(clerkOrg: ClerkOrganizationPayl
     updated_at: new Date().toISOString(),
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('organizations')
     .upsert(orgData, { onConflict: 'clerk_org_id' })
     .select();

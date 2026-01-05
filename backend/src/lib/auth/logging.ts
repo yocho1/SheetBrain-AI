@@ -68,7 +68,8 @@ export async function logAuditEvent(event: {
 
     // Send to error tracking if failed
     if (!event.success && Sentry) {
-      Sentry.captureMessage('Audit failed', 'error', {
+      Sentry.captureMessage('Audit failed', {
+        level: 'error',
         tags: {
           userId: event.userId,
           orgId: event.orgId,
@@ -107,7 +108,8 @@ export function logWarning(message: string, context?: Record<string, unknown>): 
   console.warn(message, context);
 
   if (Sentry) {
-    Sentry.captureMessage(message, 'warning', {
+    Sentry.captureMessage(message, {
+      level: 'warning',
       extra: context,
     });
   }
