@@ -123,7 +123,9 @@ Respond in JSON format for each formula.`;
       throw new Error(`OpenRouter API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    const data = await response.json() as any;
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
     const content = data.choices?.[0]?.message?.content;
     
     if (!content) {
@@ -187,7 +189,9 @@ Provide only the corrected formula without explanation.`,
       return formula;
     }
 
-    const data = await response.json() as any;
+    const data = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
     return data.choices?.[0]?.message?.content?.trim() || formula;
   } catch (error) {
     console.error('OpenRouter recommendation error:', error);

@@ -31,7 +31,7 @@ export function detectHallucinations(analysis: {
   suggestions: Array<{ recommended: string }>;
 }): boolean {
   // Check if suggested formulas are valid
-  const validFormulaPattern = /^=[\w\(\),:\s\-\+\*\/!&|><="'.]+$/;
+  const validFormulaPattern = /^=[\w(),:\s+*/!&|><="'.-]+$/;
 
   return analysis.suggestions.some((s) => !validFormulaPattern.test(s.recommended));
 }
@@ -62,7 +62,14 @@ export function rankSuggestion(suggestion: {
 /**
  * Validate audit result structure
  */
-export function validateAuditResult(result: any): {
+interface AuditResultLike {
+  id?: string;
+  analysis?: unknown;
+  confidenceScore?: number;
+  explanation?: string;
+}
+
+export function validateAuditResult(result: AuditResultLike): {
   valid: boolean;
   errors: string[];
 } {

@@ -7,11 +7,17 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase configuration');
+type SupabaseClientType = ReturnType<typeof createClient> | null;
+
+let supabaseClient: SupabaseClientType = null;
+
+if (supabaseUrl && supabaseKey) {
+  supabaseClient = createClient(supabaseUrl, supabaseKey);
+} else {
+  console.warn('Supabase credentials missing; database features will be disabled');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = supabaseClient;
 
 /**
  * Get user profile with organization
@@ -74,7 +80,7 @@ export async function incrementAuditCount(userId: string) {
 /**
  * Save audit result
  */
-export async function saveAuditResult(auditData: any) {
+export async function saveAuditResult(auditData: Record<string, unknown>) {
   const { data, error } = await supabase
     .from('audit_results')
     .insert([auditData]);
@@ -119,6 +125,317 @@ export async function createApiKey(userId: string, name: string, expiresAt?: Dat
 
   if (error) throw error;
   return { ...data[0], key };
+}
+
+/**
+ * Clerk → Supabase sync functions
+ */
+
+/**
+ * Initialize or get organization by Clerk org ID
+ */
+export async function upsertOrganization(clerkOrgId: string, name?: string) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .upsert(
+      { clerk_org_id: clerkOrgId, name: name || clerkOrgId },
+      { onConflict: 'clerk_org_id' }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error upserting organization:', error);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * Sync user from Clerk to Supabase
+ */
+export async function upsertClerkUser(clerkUserId: string, email: string, name?: string, clerkOrgId?: string) {
+  if (!supabase) return null;
+
+  let orgId: string | null = null;
+  if (clerkOrgId) {
+    const org = await upsertOrganization(clerkOrgId);
+    orgId = org?.id || null;
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .upsert(
+      { clerk_user_id: clerkUserId, email, name, organization_id: orgId },
+      { onConflict: 'clerk_user_id' }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error upserting user:', error);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * Get organization by Clerk org ID
+ */
+export async function getOrganizationByClerkId(clerkOrgId: string) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('organizations')
+    .select('*')
+    .eq('clerk_org_id', clerkOrgId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error fetching organization:', error);
+  }
+  return data || null;
+}
+
+/**
+ * Database Persistence functions for Billing
+ */
+
+/**
+ * Get subscription for organization
+ */
+export async function getSubscriptionFromDB(orgId: string) {
+  if (!supabase) return null;
+
+  const { data } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('organization_id', orgId)
+    .single();
+
+  return data;
+}
+
+/**
+ * Create or update subscription
+ */
+export async function upsertSubscription(orgId: string, subscription: Record<string, unknown>) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .upsert(
+      { organization_id: orgId, ...subscription },
+      { onConflict: 'organization_id' }
+    )
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error upserting subscription:', error);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * Get current month audit usage count
+ */
+export async function getMonthlyAuditCount(orgId: string): Promise<number> {
+  if (!supabase) return 0;
+
+  const now = new Date();
+  const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  const { data, error } = await supabase
+    .from('audit_usage')
+    .select('count')
+    .eq('organization_id', orgId)
+    .eq('month_year', monthYear)
+    .single();
+
+  if (error && error.code === 'PGRST116') {
+    return 0;
+  }
+
+  return data?.count || 0;
+}
+
+/**
+ * Increment audit usage for current month
+ */
+export async function incrementAuditUsageDB(orgId: string) {
+  if (!supabase) return;
+
+  const now = new Date();
+  const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const current = await getMonthlyAuditCount(orgId);
+
+  await supabase
+    .from('audit_usage')
+    .upsert(
+      {
+        organization_id: orgId,
+        month_year: monthYear,
+        count: current + 1,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'organization_id,month_year' }
+    );
+}
+
+/**
+ * Database Persistence functions for Rate Limiting
+ */
+
+/**
+ * Get or create rate limit bucket for organization
+ */
+export async function getRateLimitBucketDB(orgId: string) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('rate_limit_buckets')
+    .select('*')
+    .eq('organization_id', orgId)
+    .single();
+
+  if (error && error.code === 'PGRST116') {
+    const resetTime = new Date(Date.now() + 60 * 1000);
+    const { data: newBucket } = await supabase
+      .from('rate_limit_buckets')
+      .insert({
+        organization_id: orgId,
+        request_count: 0,
+        window_reset_at: resetTime.toISOString(),
+      })
+      .select()
+      .single();
+    return newBucket;
+  }
+
+  return data;
+}
+
+/**
+ * Increment and get request count in rate limit bucket
+ */
+export async function checkAndIncrementRequestCount(orgId: string): Promise<{ count: number; resetAt: Date } | null> {
+  if (!supabase) return null;
+
+  const bucket = await getRateLimitBucketDB(orgId);
+  if (!bucket) return null;
+
+  const now = new Date();
+  const resetTime = new Date(bucket.window_reset_at);
+  let currentCount = bucket.request_count;
+
+  // Reset window if expired
+  if (now > resetTime) {
+    const newResetTime = new Date(now.getTime() + 60 * 1000);
+    await supabase
+      .from('rate_limit_buckets')
+      .update({
+        request_count: 1,
+        window_reset_at: newResetTime.toISOString(),
+      })
+      .eq('organization_id', orgId);
+    return { count: 1, resetAt: newResetTime };
+  }
+
+  // Increment count
+  currentCount += 1;
+  await supabase
+    .from('rate_limit_buckets')
+    .update({ request_count: currentCount })
+    .eq('organization_id', orgId);
+
+  return { count: currentCount, resetAt: resetTime };
+}
+
+/**
+ * Policies and Audit History
+ */
+
+/**
+ * Add policy for organization
+ */
+export async function addPolicyDB(orgId: string, title: string, content: string, category?: string) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('policies')
+    .insert({
+      organization_id: orgId,
+      title,
+      content,
+      category,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding policy:', error);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * Get all policies for organization
+ */
+export async function getPoliciesDB(orgId: string) {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('policies')
+    .select('*')
+    .eq('organization_id', orgId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching policies:', error);
+    return [];
+  }
+  return data || [];
+}
+
+/**
+ * Log audit result to database
+ */
+interface AuditLogInput {
+  formulaCount: number;
+  issuesFound: number;
+  duration: number;
+  ragUsed: boolean;
+  ragContextCount?: number;
+}
+
+export async function logAuditToDB(orgId: string, userId: string | undefined, auditData: AuditLogInput) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from('audit_logs')
+    .insert({
+      organization_id: orgId,
+      user_id: userId,
+      formula_count: auditData.formulaCount,
+      compliant_count: auditData.issuesFound ? auditData.formulaCount - auditData.issuesFound : auditData.formulaCount,
+      issues_found: auditData.issuesFound,
+      duration_ms: auditData.duration,
+      rag_used: auditData.ragUsed,
+      rag_context_count: auditData.ragContextCount,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error logging audit:', error);
+    return null;
+  }
+  return data;
 }
 
 export default supabase;

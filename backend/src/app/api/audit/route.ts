@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { auditFormulas } from '@/lib/llm/openrouter';
 import { retrieveRelevantContext } from '@/lib/ai/retrieval';
 import { listPolicies, seedDefaultPolicies } from '@/lib/policies/store';
@@ -75,9 +76,9 @@ function extractFormulas(context: SheetContext, range: string) {
   return collected;
 }
 
-function buildPoliciesText(orgId: string) {
-  seedDefaultPolicies(orgId);
-  const policies = listPolicies(orgId);
+async function buildPoliciesText(orgId: string) {
+  await seedDefaultPolicies(orgId);
+  const policies = await listPolicies(orgId);
   return policies
     .map((p, idx) => `${idx + 1}. ${p.title}: ${p.content}`)
     .join('\n');
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const policiesText = buildPoliciesText(orgId);
+    const policiesText = await buildPoliciesText(orgId);
     const auditContext = `Organization: ${context.organization || 'Unknown'}\nDepartment: ${context.department || 'N/A'}\nSheet: ${context.sheetName || 'N/A'} (${context.range || range})\nPurpose: ${context.sheetPurpose || 'Not provided'}`;
 
     // RAG: retrieve supporting context from vector store (best-effort, skip on OpenAI errors)
@@ -170,7 +171,7 @@ export async function POST(request: NextRequest) {
         orgId,
         topK: 8,
         minConfidence: 0.55,
-      } as any);
+        } as { orgId: string; topK: number; minConfidence: number });
 
       if (ragResults.length > 0) {
         retrievedText = ragResults
@@ -231,6 +232,59 @@ export async function POST(request: NextRequest) {
       else if (r.risk === 'medium') severityCounts.medium++;
       else if (r.risk === 'low') severityCounts.low++;
     });
+
+    // Save audit log to database
+    try {
+      const { supabase } = await import('@/lib/db');
+
+      if (!supabase) {
+        console.warn('Supabase client not initialized; skipping audit log persistence');
+      } else {
+        const supabaseClient = supabase as unknown as SupabaseClient<any, 'public', any>;
+
+        type AuditLogInsert = {
+          organization_id: string;
+          user_id: string | null;
+          formula_count: number;
+          compliant_count: number;
+          issues_found: number;
+          duration_ms: number;
+          rag_used: boolean;
+          rag_context_count: number;
+        };
+
+        const anySupabase = supabaseClient as any;
+
+        // Get user UUID from clerk_user_id
+        const { data: user } = await anySupabase
+          .from('users')
+          .select('id')
+          .eq('clerk_user_id', userId)
+          .single();
+
+        // Get organization UUID from clerk_org_id
+        const { data: org } = await anySupabase
+          .from('organizations')
+          .select('id')
+          .eq('clerk_org_id', orgId)
+          .single();
+
+        if (org) {
+          await anySupabase.from('audit_logs').insert<AuditLogInsert>({
+            organization_id: org.id,
+            user_id: (user?.id as string | null | undefined) ?? null,
+            formula_count: auditResults.length,
+            compliant_count: compliantCount,
+            issues_found: issuesFound,
+            duration_ms: duration,
+            rag_used: retrievedText.length > 0,
+            rag_context_count: ragResults?.length || 0,
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to save audit log to database:', err);
+    }
 
     // Log audit event to Axiom
     await logAudit({

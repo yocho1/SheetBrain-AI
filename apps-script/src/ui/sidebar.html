@@ -1,49 +1,653 @@
-<!-- HTML template for Google Sheets sidebar -->
-
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
+    <base target="_top" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2/dist/tailwind.min.css" rel="stylesheet" />
     <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-          sans-serif;
+      * {
         margin: 0;
         padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          'Google Sans',
+          -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          Roboto,
+          Arial,
+          sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #202124;
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+
+      .container {
+        padding: 0;
+        max-width: 350px;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 24px 20px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        position: relative;
         overflow: hidden;
       }
 
-      #app {
-        width: 100%;
-        height: 100%;
+      .header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        animation: pulse 15s infinite;
       }
 
-      /* Google Workspace Design System colors */
-      .primary-text {
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: translate(0, 0) scale(1);
+        }
+        50% {
+          transform: translate(-10%, -10%) scale(1.1);
+        }
+      }
+
+      .header h1 {
+        font-size: 24px;
+        font-weight: 600;
+        color: #ffffff;
+        margin-bottom: 4px;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+      }
+
+      .header-subtitle {
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.9);
+        position: relative;
+        z-index: 1;
+      }
+
+      .brain-icon {
+        font-size: 48px;
+        display: block;
+        margin-bottom: 8px;
+        animation: float 3s ease-in-out infinite;
+        position: relative;
+        z-index: 1;
+      }
+
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+
+      .content-wrapper {
+        background: #ffffff;
+        padding: 20px;
+        min-height: calc(100vh - 150px);
+      }
+
+      .section {
+        margin-bottom: 24px;
+      }
+
+      .section-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #667eea;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .info-card {
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 20px;
+        border-left: 4px solid #667eea;
+      }
+
+      .info-card-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1f2937;
+        margin-bottom: 8px;
+      }
+
+      .info-card-text {
+        font-size: 13px;
+        color: #4b5563;
+        line-height: 1.5;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 14px 20px;
+        border: none;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.5s;
+      }
+
+      .btn:hover::before {
+        left: 100%;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: #ffffff;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+      }
+
+      .btn-primary:active {
+        transform: translateY(0);
+      }
+
+      .btn-primary:disabled {
+        background: #cbd5e1;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .btn-icon {
+        font-size: 18px;
+      }
+
+      .btn-secondary {
+        background: #f1f3f4;
         color: #202124;
       }
 
-      .secondary-text {
-        color: #5f6368;
+      .btn-secondary:hover {
+        background: #e8eaed;
       }
 
-      .accent-blue {
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 40px 20px;
+      }
+
+      .loading.active {
+        display: block;
+      }
+
+      .spinner {
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 16px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-text {
+        font-size: 14px;
+        color: #6b7280;
+        font-weight: 500;
+      }
+
+      .results {
+        display: none;
+        animation: fadeIn 0.3s ease-in;
+      }
+
+      .results.active {
+        display: block;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .result-card {
+        background: #ffffff;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+        transition: all 0.3s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      .result-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+
+      .result-card.high-risk {
+        background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+        border-color: #f87171;
+      }
+
+      .result-card.medium-risk {
+        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        border-color: #fbbf24;
+      }
+
+      .result-card.low-risk {
+        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+        border-color: #34d399;
+      }
+
+      .cell-label {
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-weight: 700;
         color: #1f2937;
+        font-size: 13px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
       }
 
-      .error-red {
-        color: #d33b27;
+      .formula {
+        font-family: 'Monaco', 'Courier New', monospace;
+        font-size: 13px;
+        background: #f9fafb;
+        padding: 12px;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+        margin: 12px 0;
+        overflow-x: auto;
+        color: #374151;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
       }
 
-      .success-green {
-        color: #0d652d;
+      .status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-bottom: 8px;
+      }
+
+      .status.compliant {
+        background: #d1fae5;
+        color: #065f46;
+      }
+
+      .status.non-compliant {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      .risk-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+      }
+
+      .risk-high {
+        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+      }
+
+      .risk-medium {
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(217, 119, 6, 0.3);
+      }
+
+      .risk-low {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        color: #ffffff;
+        box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+      }
+
+      .issues-list {
+        margin: 12px 0;
+        padding-left: 20px;
+        font-size: 14px;
+        color: #4b5563;
+        line-height: 1.6;
+      }
+
+      .recommendation {
+        background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        margin-top: 12px;
+        border-left: 4px solid #0ea5e9;
+        line-height: 1.6;
+        color: #0c4a6e;
+        font-weight: 500;
+      }
+
+      .apply-btn {
+        margin-top: 12px;
+        padding: 10px 18px;
+        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 13px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+        box-shadow: 0 2px 8px rgba(31, 41, 55, 0.3);
+      }
+
+      .apply-btn:hover {
+        background: linear-gradient(135deg, #111827 0%, #000000 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(31, 41, 55, 0.4);
+      }
+
+      .apply-btn:active {
+        transform: translateY(0);
+      }
+
+      .summary {
+        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        border: 2px solid #e5e7eb;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+
+      .summary-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        font-size: 14px;
+        padding: 8px 0;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .summary-item:last-child {
+        border-bottom: none;
+      }
+
+      .summary-label {
+        color: #374151;
+        font-weight: 600;
+      }
+
+      .summary-value {
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-size: 13px;
+      }
+
+      .error {
+        background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+        border: 2px solid #f87171;
+        color: #991b1b;
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        box-shadow: 0 2px 8px rgba(248, 113, 113, 0.2);
+        font-weight: 600;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6b7280;
+      }
+
+      .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+        opacity: 0.4;
+        filter: grayscale(100%);
+      }
+
+      .empty-state-text {
+        font-size: 15px;
+        font-weight: 500;
+        color: #9ca3af;
       }
     </style>
   </head>
   <body>
-    <div id="app"></div>
-    <script src="bundle.js"></script>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <span class="brain-icon">🧠</span>
+        <h1>SheetBrain AI</h1>
+      </div>
+
+      <!-- Action Section -->
+      <div class="section">
+        <button class="btn btn-primary" id="auditBtn" onclick="runAudit()">
+          <span>🔍</span>
+          <span>Audit Selected Formulas</span>
+        </button>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Analyzing formulas...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-state-icon">📊</div>
+        <p>Select cells with formulas and click "Audit" to get started</p>
+      </div>
+
+      <!-- Results Section -->
+      <div class="results" id="results">
+        <div class="summary" id="summary"></div>
+        <div id="resultsList"></div>
+      </div>
+
+      <!-- Error Section -->
+      <div id="errorSection"></div>
+    </div>
+
+    <script>
+      let currentResults = null;
+
+      function runAudit() {
+        const btn = document.getElementById('auditBtn');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const emptyState = document.getElementById('emptyState');
+        const errorSection = document.getElementById('errorSection');
+
+        // Reset UI
+        btn.disabled = true;
+        loading.classList.add('active');
+        results.classList.remove('active');
+        emptyState.style.display = 'none';
+        errorSection.innerHTML = '';
+
+        google.script.run
+          .withSuccessHandler(function (response) {
+            btn.disabled = false;
+            loading.classList.remove('active');
+
+            if (response && response.results) {
+              currentResults = response;
+              displayResults(response);
+            } else {
+              showError('No results received from audit');
+            }
+          })
+          .withFailureHandler(function (error) {
+            btn.disabled = false;
+            loading.classList.remove('active');
+            showError(error.message || 'Audit failed');
+          })
+          .getAuditResults();
+      }
+
+      function displayResults(data) {
+        const results = document.getElementById('results');
+        const summary = document.getElementById('summary');
+        const resultsList = document.getElementById('resultsList');
+
+        // Display summary
+        const compliant = data.results.filter((r) => r.compliant).length;
+        const total = data.results.length;
+
+        summary.innerHTML = `
+          <div class="summary-item">
+            <span class="summary-label">Total Formulas:</span>
+            <span class="summary-value">${total}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Compliant:</span>
+            <span class="summary-value">${compliant}</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Non-Compliant:</span>
+            <span class="summary-value">${total - compliant}</span>
+          </div>
+        `;
+
+        // Display individual results
+        resultsList.innerHTML = data.results
+          .map(
+            (result, index) => `
+          <div class="result-card ${result.riskLevel}-risk">
+            <div class="cell-label">${result.cell}</div>
+            <span class="risk-badge risk-${result.riskLevel}">${result.riskLevel} risk</span>
+            <span class="status ${result.compliant ? 'compliant' : 'non-compliant'}">
+              ${result.compliant ? '✓ Compliant' : '✗ Non-Compliant'}
+            </span>
+            
+            <div class="formula">${result.formula}</div>
+            
+            ${
+              result.issues && result.issues.length > 0
+                ? `
+              <ul class="issues-list">
+                ${result.issues.map((issue) => `<li>${issue}</li>`).join('')}
+              </ul>
+            `
+                : ''
+            }
+            
+            ${
+              result.recommendation
+                ? `
+              <div class="recommendation">
+                <strong>💡 Recommendation:</strong><br/>
+                ${result.recommendation}
+              </div>
+            `
+                : ''
+            }
+            
+            ${
+              result.suggestedFormula
+                ? `
+              <button class="apply-btn" onclick="applySuggestion('${result.cell}', \`${result.suggestedFormula}\`)">
+                Apply Suggestion
+              </button>
+            `
+                : ''
+            }
+          </div>
+        `
+          )
+          .join('');
+
+        results.classList.add('active');
+      }
+
+      function applySuggestion(cell, formula) {
+        google.script.run
+          .withSuccessHandler(function (response) {
+            if (response.success) {
+              alert('Formula applied successfully to ' + cell);
+            } else {
+              alert('Error: ' + response.message);
+            }
+          })
+          .withFailureHandler(function (error) {
+            alert('Error applying formula: ' + error.message);
+          })
+          .applySuggestion(cell, formula);
+      }
+
+      function showError(message) {
+        const errorSection = document.getElementById('errorSection');
+        errorSection.innerHTML = `
+          <div class="error">
+            <strong>Error:</strong> ${message}
+          </div>
+        `;
+      }
+    </script>
   </body>
 </html>

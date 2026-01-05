@@ -2,11 +2,14 @@
  * Logging and monitoring utilities
  */
 
+import type { PostHog } from 'posthog-node';
+
 // Optional Sentry import (only if package is available)
-let Sentry: any = null;
+type SentryModule = typeof import('@sentry/nextjs') | null;
+let Sentry: SentryModule = null;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   Sentry = require('@sentry/nextjs');
-  // Initialize Sentry for error tracking
   if (process.env.SENTRY_DSN && Sentry) {
     Sentry.init({
       dsn: process.env.SENTRY_DSN,
@@ -19,8 +22,9 @@ try {
 }
 
 // Optional PostHog import
-let posthog: any = null;
+let posthog: PostHog | null = null;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { PostHog } = require('posthog-node');
   posthog = new PostHog(process.env.POSTHOG_API_KEY || '', {
     host: 'https://us.posthog.com',
@@ -113,7 +117,7 @@ export function logWarning(message: string, context?: Record<string, unknown>): 
  * Log info
  */
 export function logInfo(message: string, context?: Record<string, unknown>): void {
-  console.log(message, context);
+  console.warn(message, context);
 
   if (posthog) {
     posthog.capture({

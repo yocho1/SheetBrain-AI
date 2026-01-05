@@ -16,15 +16,15 @@ export const inngest = new Inngest({
 export const processDocumentIngestion = inngest.createFunction(
   { id: 'process-document-ingestion' },
   { event: 'document.ingested' },
-  async ({ event, step }) => {
+  async ({ step }) => {
     // Step 1: Extract text from document
-    const text = await step.run('extract-text', async () => {
+      const _text = await step.run('extract-text', async () => {
       // Extract using Unstructured.io
       return 'extracted-text';
     });
 
     // Step 2: Generate embeddings
-    const embeddings = await step.run('generate-embeddings', async () => {
+      const _embeddings = await step.run('generate-embeddings', async () => {
       // Generate embeddings in batches
       return [];
     });
@@ -45,7 +45,7 @@ export const processDocumentIngestion = inngest.createFunction(
 export const updateUsageStats = inngest.createFunction(
   { id: 'update-usage-stats' },
   { event: 'audit.completed' },
-  async ({ event, step }) => {
+  async ({ step }) => {
     await step.run('increment-counters', async () => {
       // Update user usage in database
       return true;

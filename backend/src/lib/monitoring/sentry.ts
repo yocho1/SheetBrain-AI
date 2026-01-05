@@ -48,7 +48,7 @@ export function initSentry() {
  */
 export function captureError(
   error: Error | unknown,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ) {
   if (context) {
     Sentry.setContext('additional', context);
@@ -66,7 +66,7 @@ export function captureError(
  */
 export function addBreadcrumb(
   message: string,
-  data?: Record<string, any>,
+  data?: Record<string, unknown>,
   level: Sentry.SeverityLevel = 'info'
 ) {
   Sentry.addBreadcrumb({

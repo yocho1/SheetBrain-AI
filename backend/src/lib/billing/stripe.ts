@@ -1,9 +1,11 @@
 /**
  * Stripe billing integration
  * Handles subscriptions, usage tracking, and webhooks
+ * Now with PostgreSQL persistence
  */
 
 import Stripe from 'stripe';
+import { supabase } from '@/lib/db';
 
 const stripe = new Stripe(process.env.STRIPE_API_KEY || '', {
   apiVersion: '2023-10-16',
@@ -20,9 +22,6 @@ export interface SubscriptionStatus {
   quotaLimit: number; // audits/month
 }
 
-// In-memory subscription cache (in production, use database)
-const subscriptions: Map<string, SubscriptionStatus> = new Map();
-
 const PLAN_LIMITS = {
   free: 10,
   pro: 1000,
@@ -37,10 +36,15 @@ export async function getOrCreateCustomer(
   email: string,
   name: string
 ): Promise<string> {
-  // Check cache first
-  const existing = subscriptions.get(orgId);
-  if (existing?.customerId) {
-    return existing.customerId;
+  // Check database first
+  const { data: existing } = await supabase
+    .from('subscriptions')
+    .select('stripe_customer_id')
+    .eq('organization_id', orgId)
+    .single();
+
+  if (existing?.stripe_customer_id) {
+    return existing.stripe_customer_id;
   }
 
   // Create Stripe customer
@@ -49,6 +53,17 @@ export async function getOrCreateCustomer(
     name,
     metadata: { orgId },
   });
+
+  // Save to database
+  await supabase
+    .from('subscriptions')
+    .upsert({
+      organization_id: orgId,
+      stripe_customer_id: customer.id,
+      plan: 'free',
+      status: 'active',
+    })
+    .select();
 
   return customer.id;
 }
@@ -72,15 +87,22 @@ export async function createSubscription(
     throw new Error(`Product ID not configured for plan: ${planId}`);
   }
 
-  let subscription: SubscriptionStatus = {
-    orgId,
-    customerId,
-    subscriptionId: null,
+  const subscriptionData: {
+    organization_id: string;
+    stripe_customer_id: string;
+    stripe_subscription_id: string | null;
+    plan: keyof typeof PLAN_LIMITS;
+    status: string;
+    current_period_start: string | null;
+    current_period_end: string | null;
+  } = {
+    organization_id: orgId,
+    stripe_customer_id: customerId,
+    stripe_subscription_id: null,
     plan: planId,
     status: 'active',
-    currentPeriodEnd: null,
-    usageThisMonth: 0,
-    quotaLimit: PLAN_LIMITS[planId],
+    current_period_start: null,
+    current_period_end: null,
   };
 
   // Only create Stripe subscription for paid plans
@@ -91,36 +113,85 @@ export async function createSubscription(
       metadata: { orgId },
     });
 
-    subscription.subscriptionId = stripeSubscription.id;
-    subscription.status = stripeSubscription.status as any;
-    subscription.currentPeriodEnd = new Date(
-      stripeSubscription.current_period_end * 1000
-    );
+    subscriptionData.stripe_subscription_id = stripeSubscription.id;
+    subscriptionData.status = stripeSubscription.status;
+    subscriptionData.current_period_start = new Date(stripeSubscription.current_period_start * 1000).toISOString();
+    subscriptionData.current_period_end = new Date(stripeSubscription.current_period_end * 1000).toISOString();
   }
 
-  subscriptions.set(orgId, subscription);
-  return subscription;
+  // Save to database
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .upsert(subscriptionData, { onConflict: 'organization_id' })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Get usage for this month
+  const monthYear = new Date().toISOString().slice(0, 7);
+  const { data: usage } = await supabase
+    .from('audit_usage')
+    .select('count')
+    .eq('organization_id', orgId)
+    .eq('month_year', monthYear)
+    .single();
+
+  return {
+    orgId,
+    customerId,
+    subscriptionId: data.stripe_subscription_id,
+    plan: data.plan,
+    status: data.status,
+    currentPeriodEnd: data.current_period_end ? new Date(data.current_period_end) : null,
+    usageThisMonth: usage?.count || 0,
+    quotaLimit: PLAN_LIMITS[planId],
+  };
 }
 
 /**
  * Get subscription status for an organization
  */
 export async function getSubscription(orgId: string): Promise<SubscriptionStatus> {
-  const cached = subscriptions.get(orgId);
-  if (cached) {
-    return cached;
-  }
+  // Query database
+  const { data: sub } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('organization_id', orgId)
+    .single();
+
+  // Get current month usage
+  const monthYear = new Date().toISOString().slice(0, 7);
+  const { data: usage } = await supabase
+    .from('audit_usage')
+    .select('count')
+    .eq('organization_id', orgId)
+    .eq('month_year', monthYear)
+    .single();
 
   // Default to free plan if not found
+  if (!sub) {
+    return {
+      orgId,
+      customerId: '',
+      subscriptionId: null,
+      plan: 'free',
+      status: 'active',
+      currentPeriodEnd: null,
+      usageThisMonth: usage?.count || 0,
+      quotaLimit: PLAN_LIMITS.free,
+    };
+  }
+
   return {
     orgId,
-    customerId: '',
-    subscriptionId: null,
-    plan: 'free',
-    status: 'active',
-    currentPeriodEnd: null,
-    usageThisMonth: 0,
-    quotaLimit: PLAN_LIMITS.free,
+    customerId: sub.stripe_customer_id || '',
+    subscriptionId: sub.stripe_subscription_id,
+    plan: sub.plan,
+    status: sub.status,
+    currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end) : null,
+    usageThisMonth: usage?.count || 0,
+    quotaLimit: PLAN_LIMITS[sub.plan as keyof typeof PLAN_LIMITS],
   };
 }
 
@@ -128,11 +199,37 @@ export async function getSubscription(orgId: string): Promise<SubscriptionStatus
  * Record usage for an organization
  */
 export async function recordAuditUsage(orgId: string): Promise<void> {
-  const sub = await getSubscription(orgId);
-  sub.usageThisMonth += 1;
-  subscriptions.set(orgId, sub);
+  const monthYear = new Date().toISOString().slice(0, 7); // YYYY-MM
 
-  // In production, also report to Stripe metered billing
+  // Increment usage in database
+  const { data: existing } = await supabase
+    .from('audit_usage')
+    .select('count')
+    .eq('organization_id', orgId)
+    .eq('month_year', monthYear)
+    .single();
+
+  if (existing) {
+    await supabase
+      .from('audit_usage')
+      .update({ 
+        count: existing.count + 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq('organization_id', orgId)
+      .eq('month_year', monthYear);
+  } else {
+    await supabase
+      .from('audit_usage')
+      .insert({
+        organization_id: orgId,
+        month_year: monthYear,
+        count: 1,
+      });
+  }
+
+  // Also report to Stripe metered billing if applicable
+  const sub = await getSubscription(orgId);
   if (sub.subscriptionId && process.env.STRIPE_METERED_PRICE_ID) {
     try {
       await stripe.subscriptionItems.createUsageRecord(
@@ -181,17 +278,16 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       const subscription = event.data.object as Stripe.Subscription;
       const orgId = subscription.metadata?.orgId;
       if (orgId) {
-        const existing = subscriptions.get(orgId) || {
-          orgId,
-          customerId: subscription.customer as string,
-          usageThisMonth: 0,
-        };
-        Object.assign(existing, {
-          subscriptionId: subscription.id,
-          status: subscription.status,
-          currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-        });
-        subscriptions.set(orgId, existing as SubscriptionStatus);
+        await supabase
+          .from('subscriptions')
+          .update({
+            stripe_subscription_id: subscription.id,
+            status: subscription.status,
+            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('organization_id', orgId);
       }
       break;
     }
@@ -200,12 +296,15 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       const subscription = event.data.object as Stripe.Subscription;
       const orgId = subscription.metadata?.orgId;
       if (orgId) {
-        const existing = subscriptions.get(orgId);
-        if (existing) {
-          existing.status = 'canceled';
-          existing.subscriptionId = null;
-          subscriptions.set(orgId, existing);
-        }
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: 'canceled',
+            stripe_subscription_id: null,
+            cancel_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('organization_id', orgId);
       }
       break;
     }
@@ -214,17 +313,19 @@ export async function handleWebhookEvent(event: Stripe.Event): Promise<void> {
       const invoice = event.data.object as Stripe.Invoice;
       const orgId = invoice.metadata?.orgId;
       if (orgId) {
-        const existing = subscriptions.get(orgId);
-        if (existing) {
-          existing.status = 'past_due';
-          subscriptions.set(orgId, existing);
-        }
+        await supabase
+          .from('subscriptions')
+          .update({
+            status: 'past_due',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('organization_id', orgId);
       }
       break;
     }
 
     default:
-      console.log(`Unhandled webhook event: ${event.type}`);
+      console.warn(`Unhandled webhook event: ${event.type}`);
   }
 }
 

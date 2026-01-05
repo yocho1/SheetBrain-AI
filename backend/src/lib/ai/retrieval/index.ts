@@ -84,8 +84,15 @@ export async function retrieveRelevantContext(
     // Combine and deduplicate results
     const combinedResults = [...(results.matches || []), ...(keywordResults || [])];
 
-    const seen = new Map<string, any>();
-    combinedResults.forEach((r: any) => {
+    type MatchRecord = {
+      id?: string;
+      score?: number;
+      values?: number[];
+      metadata?: Record<string, unknown> & { content?: string };
+    };
+
+    const seen = new Map<string, MatchRecord>();
+    combinedResults.forEach((r: MatchRecord) => {
       if (!r?.id) return;
       const existing = seen.get(r.id);
       if (!existing || (r.score || 0) > (existing.score || 0)) {
@@ -99,9 +106,9 @@ export async function retrieveRelevantContext(
     const chunks: DocumentChunk[] = deduped
       .filter((r) => (r.score || 0) >= (context.minConfidence || 0.7))
       .map((match) => ({
-        id: match.id,
+        id: match.id || '',
         orgId: context.orgId,
-        content: match.metadata?.content || '',
+        content: (match.metadata?.content as string) || '',
         embedding: match.values || [],
         metadata: match.metadata || {},
       }));
@@ -125,7 +132,7 @@ export async function ingestDocument(
   if (!pinecone) {
     throw new Error('Pinecone not configured');
   }
-  if (!metadata || !(metadata as any).orgId) {
+  if (!metadata || typeof (metadata as { orgId?: unknown }).orgId !== 'string') {
     throw new Error('orgId is required in metadata for ingestion');
   }
 

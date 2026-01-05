@@ -33,7 +33,7 @@ export function getPostHogClient(): PostHog | null {
 export async function trackEvent(
   userId: string,
   eventName: string,
-  properties?: Record<string, any>
+  properties?: Record<string, unknown>
 ) {
   const client = getPostHogClient();
   if (!client) return;
@@ -61,7 +61,7 @@ export async function identifyUser(
     email?: string;
     orgId?: string;
     plan?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   }
 ) {
   const client = getPostHogClient();
@@ -83,7 +83,7 @@ export async function identifyUser(
 export async function trackPageView(
   userId: string,
   url: string,
-  properties?: Record<string, any>
+  properties?: Record<string, unknown>
 ) {
   return trackEvent(userId, '$pageview', {
     $current_url: url,

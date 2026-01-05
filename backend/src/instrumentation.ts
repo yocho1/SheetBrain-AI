@@ -7,12 +7,12 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { initSentry } = await import('./lib/monitoring/sentry');
     initSentry();
-    console.log('✓ Sentry initialized');
+    console.warn('✓ Sentry initialized');
   }
 
   if (process.env.NEXT_RUNTIME === 'edge') {
     const { initSentry } = await import('./lib/monitoring/sentry');
     initSentry();
-    console.log('✓ Sentry initialized (edge)');
+    console.warn('✓ Sentry initialized (edge)');
   }
 }

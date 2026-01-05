@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  seedDefaultPolicies(orgId);
-  const policies = listPolicies(orgId);
+  await seedDefaultPolicies(orgId);
+  const policies = await listPolicies(orgId);
   return NextResponse.json({ policies, count: policies.length });
 }
 
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const policy = addPolicy(orgId, {
+  const policy = await addPolicy(orgId, {
     title: body.title || 'Policy',
     content: body.content,
     department: body.department,

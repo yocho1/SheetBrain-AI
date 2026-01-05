@@ -32,7 +32,7 @@ export async function getFormulasFromRange(
     });
 
     const values = response.data.values || [];
-    const formulas: Array<{ cell: string; formula: string; value: any }> = [];
+    const formulas: Array<{ cell: string; formula: string; value: unknown }> = [];
 
     // Also get the formulas (A1 notation with =)
     const formulasResponse = await sheets.spreadsheets.values.get({

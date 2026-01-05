@@ -34,7 +34,7 @@ interface BaseLog {
   level: 'info' | 'warn' | 'error' | 'debug';
   service: string;
   environment: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -43,12 +43,16 @@ interface BaseLog {
 export async function log(
   level: 'info' | 'warn' | 'error' | 'debug',
   message: string,
-  data?: Record<string, any>
+  data?: Record<string, unknown>
 ) {
   const client = getAxiomClient();
   if (!client) {
     // Fallback to console
-    console[level](`[${level.toUpperCase()}] ${message}`, data);
+    if (level === 'error') {
+      console.error(`[${level.toUpperCase()}] ${message}`, data);
+    } else {
+      console.warn(`[${level.toUpperCase()}] ${message}`, data);
+    }
     return;
   }
 
@@ -65,7 +69,11 @@ export async function log(
     await client.ingest(AXIOM_DATASET, [logEntry]);
   } catch (error) {
     console.error('Axiom logging error:', error);
-    console[level](`[${level.toUpperCase()}] ${message}`, data);
+    if (level === 'error') {
+      console.error(`[${level.toUpperCase()}] ${message}`, data);
+    } else {
+      console.warn(`[${level.toUpperCase()}] ${message}`, data);
+    }
   }
 }
 
@@ -174,7 +182,7 @@ export async function logBilling(data: {
  */
 export async function logError(
   error: Error | unknown,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ) {
   const errorMessage = error instanceof Error ? error.message : String(error);
   const errorStack = error instanceof Error ? error.stack : undefined;

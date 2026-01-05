@@ -104,7 +104,7 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
 
   if (metadata?.userId) {
     // Update user tier based on subscription status
-    console.log(`Updated subscription for user ${metadata.userId}`);
+      console.warn(`Updated subscription for user ${metadata.userId}`);
   }
 }
 

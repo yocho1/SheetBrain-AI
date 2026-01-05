@@ -42,21 +42,28 @@ export async function getUserOrganizations(userId: string) {
 /**
  * Create user in database from Clerk user
  */
-export async function syncClerkUserToDatabase(clerkUser: any, orgId: string) {
+export interface ClerkUserPayload {
+  id: string;
+  email?: string;
+  emailAddresses?: Array<{ emailAddress?: string }>;
+  fullName?: string | null;
+  username?: string | null;
+}
+
+export async function syncClerkUserToDatabase(clerkUser: ClerkUserPayload, orgId: string | null) {
   const { supabase } = await import('@/lib/db');
+
+  const userData = {
+    clerk_user_id: clerkUser.id,
+    email: clerkUser.email || clerkUser.emailAddresses?.[0]?.emailAddress,
+    name: clerkUser.fullName || clerkUser.username,
+    organization_id: orgId,
+    updated_at: new Date().toISOString(),
+  };
 
   const { data, error } = await supabase
     .from('users')
-    .upsert(
-      {
-        id: clerkUser.id,
-        email: clerkUser.emailAddresses[0]?.emailAddress,
-        name: clerkUser.fullName || clerkUser.username,
-        organization_id: orgId,
-        role: 'editor', // default role
-      },
-      { onConflict: 'id' }
-    )
+    .upsert(userData, { onConflict: 'clerk_user_id' })
     .select();
 
   if (error) {
@@ -64,25 +71,31 @@ export async function syncClerkUserToDatabase(clerkUser: any, orgId: string) {
     throw error;
   }
 
-  return data[0];
+  return data?.[0];
 }
 
 /**
  * Sync organization from Clerk
  */
-export async function syncOrganizationToDatabase(clerkOrg: any) {
+export interface ClerkOrganizationPayload {
+  id: string;
+  name?: string;
+  slug?: string;
+}
+
+export async function syncOrganizationToDatabase(clerkOrg: ClerkOrganizationPayload) {
   const { supabase } = await import('@/lib/db');
+
+  const orgData = {
+    clerk_org_id: clerkOrg.id,
+    name: clerkOrg.name,
+    slug: clerkOrg.slug,
+    updated_at: new Date().toISOString(),
+  };
 
   const { data, error } = await supabase
     .from('organizations')
-    .upsert(
-      {
-        id: clerkOrg.id,
-        name: clerkOrg.name,
-        domain: clerkOrg.publicMetadata?.domain,
-      },
-      { onConflict: 'id' }
-    )
+    .upsert(orgData, { onConflict: 'clerk_org_id' })
     .select();
 
   if (error) {
@@ -90,5 +103,5 @@ export async function syncOrganizationToDatabase(clerkOrg: any) {
     throw error;
   }
 
-  return data[0];
+  return data?.[0];
 }

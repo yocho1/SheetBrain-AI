@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import type Stripe from 'stripe';
 import { handleWebhookEvent, verifyWebhookSignature } from '@/lib/billing/stripe';
 import { logBilling, logError, addBreadcrumb } from '@/lib/monitoring';
 
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     await handleWebhookEvent(event);
 
     // Log billing event
-    const eventData = event.data.object as any;
+    const eventData = event.data.object as Stripe.Event.Data.Object;
     await logBilling({
       orgId: eventData.metadata?.orgId || 'unknown',
       event: event.type,

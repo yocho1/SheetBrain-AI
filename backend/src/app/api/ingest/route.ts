@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Content is empty' }, { status: 400 });
     }
 
-    const policy = addPolicy(orgId, {
+    const policy = await addPolicy(orgId, {
       title,
       content,
       department,
@@ -112,6 +112,40 @@ export async function POST(request: NextRequest) {
     }
 
     const duration = Date.now() - startTime;
+
+    // Save ingestion log to database
+    try {
+      const { supabase } = await import('@/lib/db');
+      
+      // Get user UUID from clerk_user_id
+      const { data: user } = await supabase
+        .from('users')
+        .select('id')
+        .eq('clerk_user_id', userId)
+        .single();
+
+      // Get organization UUID from clerk_org_id  
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('id')
+        .eq('clerk_org_id', orgId)
+        .single();
+
+      if (org) {
+        await supabase.from('ingestion_logs').insert({
+          organization_id: org.id,
+          user_id: user?.id || null,
+          policy_id: policy.id,
+          document_size: content.length,
+          chunk_count: chunkCount,
+          vectors_upserted: vectorsUpserted ? chunkCount : 0,
+          duration_ms: duration,
+          success: true,
+        });
+      }
+    } catch (err) {
+      console.warn('Failed to save ingestion log to database:', err);
+    }
 
     // Log ingestion event
     await logIngestion({

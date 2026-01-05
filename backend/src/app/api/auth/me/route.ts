@@ -33,10 +33,10 @@ export async function GET(request: NextRequest) {
             {
               user: {
                 id: payload.sub,
-                email: (payload as any).email,
-                role: (payload as any).role,
-                organization: (payload as any).orgId
-                  ? { id: (payload as any).orgId }
+                email: payload.email as string | undefined,
+                role: payload.role as string | undefined,
+                organization: (payload.orgId as string | undefined)
+                  ? { id: payload.orgId as string }
                   : null,
               },
               source: 'dev-fallback',
@@ -70,10 +70,10 @@ export async function GET(request: NextRequest) {
           {
             user: {
               id: payload.sub,
-              email: (payload as any).email,
-              role: (payload as any).role,
-              organization: (payload as any).orgId
-                ? { id: (payload as any).orgId }
+              email: payload.email as string | undefined,
+              role: payload.role as string | undefined,
+              organization: (payload.orgId as string | undefined)
+                ? { id: payload.orgId as string }
                 : null,
             },
             source: 'dev-fallback',
