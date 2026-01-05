@@ -156,12 +156,24 @@ export async function createSubscription(
  */
 export async function getSubscription(orgId: string): Promise<SubscriptionStatus> {
   // Query database
-  if (!supabase) throw new Error('Database not available');
+  if (!supabase) {
+    return {
+      orgId,
+      customerId: '',
+      subscriptionId: null,
+      plan: 'free',
+      status: 'active',
+      currentPeriodEnd: null,
+      usageThisMonth: 0,
+      quotaLimit: PLAN_LIMITS.free,
+    };
+  }
   const { data: sub } = await (supabase as any)
     .from('subscriptions')
     .select('*')
     .eq('organization_id', orgId)
-    .single();
+    .single()
+    .catch(() => ({ data: null }));
 
   // Get current month usage
   const monthYear = new Date().toISOString().slice(0, 7);
@@ -170,7 +182,8 @@ export async function getSubscription(orgId: string): Promise<SubscriptionStatus
     .select('count')
     .eq('organization_id', orgId)
     .eq('month_year', monthYear)
-    .single();
+    .single()
+    .catch(() => ({ data: null }));
 
   // Default to free plan if not found
   if (!sub) {

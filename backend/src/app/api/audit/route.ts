@@ -219,6 +219,7 @@ export async function POST(request: NextRequest) {
       await recordAuditUsage(orgId);
     } catch (err) {
       console.warn('Failed to record audit usage:', err);
+      // Non-blocking error
     }
 
     const duration = Date.now() - startTime;
