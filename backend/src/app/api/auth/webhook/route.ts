@@ -119,6 +119,10 @@ export async function POST(request: NextRequest) {
       const orgId = evt.data.id;
       const { supabase } = await import('@/lib/db');
       
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+      
       // Cascade delete organization (will delete related data)
       await supabase
         .from('organizations')
