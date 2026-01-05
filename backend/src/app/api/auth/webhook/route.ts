@@ -141,6 +141,10 @@ export async function POST(request: NextRequest) {
       if (userId && orgId) {
         const { supabase } = await import('@/lib/db');
         
+        if (!supabase) {
+          throw new Error('Supabase not configured');
+        }
+        
         // Update user's organization
         await supabase
           .from('users')
