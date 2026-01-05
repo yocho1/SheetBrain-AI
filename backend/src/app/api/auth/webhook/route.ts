@@ -90,6 +90,10 @@ export async function POST(request: NextRequest) {
       const userId = evt.data.id;
       const { supabase } = await import('@/lib/db');
       
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+      
       // Soft delete or hard delete user from database
       await supabase
         .from('users')
