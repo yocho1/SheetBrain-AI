@@ -12,8 +12,6 @@ export interface Policy {
   title: string;
   content: string;
   category?: string;
-  department?: string;
-  tags?: string[];
   createdAt: string;
   updatedAt?: string;
   source?: string;
@@ -23,8 +21,6 @@ export interface PolicyInput {
   title: string;
   content: string;
   category?: string;
-  department?: string;
-  tags?: string[];
   source?: string;
 }
 
@@ -50,8 +46,6 @@ export async function listPolicies(orgId: string): Promise<Policy[]> {
     title: string;
     content: string;
     category?: string;
-    department?: string;
-    tags?: string[];
     created_at: string;
     updated_at?: string;
     source?: string;
@@ -63,8 +57,6 @@ export async function listPolicies(orgId: string): Promise<Policy[]> {
     title: row.title,
     content: row.content,
     category: row.category,
-    department: row.department,
-    tags: row.tags || [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     source: row.source,
@@ -81,8 +73,6 @@ export async function addPolicy(orgId: string, input: PolicyInput): Promise<Poli
     title: input.title,
     content: input.content,
     category: input.category,
-    department: input.department,
-    tags: input.tags || [],
     source: input.source,
   };
 
@@ -104,8 +94,6 @@ export async function addPolicy(orgId: string, input: PolicyInput): Promise<Poli
     title: data.title,
     content: data.content,
     category: data.category,
-    department: data.department,
-    tags: data.tags || [],
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     source: data.source,
@@ -134,8 +122,6 @@ export async function getPolicy(orgId: string, policyId: string): Promise<Policy
     title: data.title,
     content: data.content,
     category: data.category,
-    department: data.department,
-    tags: data.tags || [],
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     source: data.source,
@@ -173,8 +159,6 @@ export async function updatePolicy(
     title: data.title,
     content: data.content,
     category: data.category,
-    department: data.department,
-    tags: data.tags || [],
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     source: data.source,
@@ -221,7 +205,6 @@ export async function seedDefaultPolicies(orgId: string): Promise<void> {
 6) No circular references allowed without approvals.
 7) Always include IFERROR for user-facing outputs.`,
     category: 'formula',
-    tags: ['default', 'formulas', 'best-practices'],
     source: 'builtin',
   });
 
@@ -251,8 +234,6 @@ export async function searchPolicies(orgId: string, keyword: string): Promise<Po
     title: string;
     content: string;
     category?: string;
-    department?: string;
-    tags?: string[];
     created_at: string;
     updated_at?: string;
     source?: string;
@@ -264,8 +245,6 @@ export async function searchPolicies(orgId: string, keyword: string): Promise<Po
     title: row.title,
     content: row.content,
     category: row.category,
-    department: row.department,
-    tags: row.tags || [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     source: row.source,

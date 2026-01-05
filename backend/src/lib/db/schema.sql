@@ -68,6 +68,7 @@ CREATE TABLE IF NOT EXISTS policies (
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   category TEXT, -- 'formula', 'naming', 'data_validation', etc.
+  source TEXT DEFAULT 'imported', -- 'imported', 'created', etc.
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
