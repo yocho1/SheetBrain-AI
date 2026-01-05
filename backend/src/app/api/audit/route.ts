@@ -255,31 +255,36 @@ export async function POST(request: NextRequest) {
 
         const anySupabase = supabaseClient as any;
 
-        // Get user UUID from clerk_user_id
-        const { data: user } = await anySupabase
-          .from('users')
-          .select('id')
-          .eq('clerk_user_id', userId)
-          .single();
+        try {
+          // Get user UUID from clerk_user_id
+          const { data: user } = await anySupabase
+            .from('users')
+            .select('id')
+            .eq('clerk_user_id', userId)
+            .single();
 
-        // Get organization UUID from clerk_org_id
-        const { data: org } = await anySupabase
-          .from('organizations')
-          .select('id')
-          .eq('clerk_org_id', orgId)
-          .single();
+          // Get organization UUID from clerk_org_id
+          const { data: org } = await anySupabase
+            .from('organizations')
+            .select('id')
+            .eq('clerk_org_id', orgId)
+            .single();
 
-        if (org) {
-          await anySupabase.from('audit_logs').insert({
-            organization_id: org.id,
-            user_id: (user?.id as string | null | undefined) ?? null,
-            formula_count: auditResults.length,
-            compliant_count: compliantCount,
-            issues_found: issuesFound,
-            duration_ms: duration,
-            rag_used: retrievedText.length > 0,
-            rag_context_count: ragResults?.length || 0,
-          });
+          if (org) {
+            await anySupabase.from('audit_logs').insert({
+              organization_id: org.id,
+              user_id: (user?.id as string | null | undefined) ?? null,
+              formula_count: auditResults.length,
+              compliant_count: compliantCount,
+              issues_found: issuesFound,
+              duration_ms: duration,
+              rag_used: retrievedText.length > 0,
+              rag_context_count: ragResults?.length || 0,
+            });
+          }
+        } catch (dbErr) {
+          // Graceful fallback if user/org lookup fails
+          console.warn('Could not save audit log - user/org sync issue:', dbErr);
         }
       }
     } catch (err) {
