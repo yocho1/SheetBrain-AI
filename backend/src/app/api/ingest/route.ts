@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     const policy = await addPolicy(orgId, {
       title,
       content,
-      category: json.category,
+      category,
       source: 'upload',
     });
 
@@ -97,8 +97,6 @@ export async function POST(request: NextRequest) {
       await ingestDocument(content, {
         orgId,
         title,
-        department,
-        tags,
         source: 'upload',
       });
       vectorsUpserted = true;

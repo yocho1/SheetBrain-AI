@@ -23,33 +23,34 @@ export async function POST(request: NextRequest) {
 
     // Create or get organization for testing
     if (supabase) {
-      // First, check if organization exists
-      let { data: orgData } = await (supabase as any)
-        .from('organizations')
-        .select('id')
-        .eq('slug', orgId)
-        .single()
-        .catch(() => ({ data: null }));
-
-      if (!orgData) {
-        // Create organization if it doesn't exist
-        const { data: newOrg, error } = await (supabase as any)
+      try {
+        // First, check if organization exists
+        const { data: orgData } = await (supabase as any)
           .from('organizations')
-          .insert({
-            slug: orgId,
-            name: orgId.replace(/-/g, ' '),
-            clerk_org_id: orgId,
-          })
           .select('id')
+          .eq('slug', orgId)
           .single();
 
-        if (newOrg) {
-          orgId = newOrg.id;
+        if (orgData) {
+          orgId = orgData.id;
         } else {
-          console.warn('Failed to create test organization:', error);
+          // Create organization if it doesn't exist
+          const { data: newOrg } = await (supabase as any)
+            .from('organizations')
+            .insert({
+              slug: orgId,
+              name: orgId.replace(/-/g, ' '),
+              clerk_org_id: orgId,
+            })
+            .select('id')
+            .single();
+
+          if (newOrg) {
+            orgId = newOrg.id;
+          }
         }
-      } else {
-        orgId = orgData.id;
+      } catch (error) {
+        console.warn('Failed to create/get test organization:', error);
       }
     }
 
