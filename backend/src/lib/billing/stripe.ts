@@ -168,25 +168,50 @@ export async function getSubscription(orgId: string): Promise<SubscriptionStatus
       quotaLimit: PLAN_LIMITS.free,
     };
   }
-  const { data: sub } = await (supabase as any)
-    .from('subscriptions')
-    .select('*')
-    .eq('organization_id', orgId)
-    .single()
-    .catch(() => ({ data: null }));
+  
+  try {
+    const { data: sub } = await (supabase as any)
+      .from('subscriptions')
+      .select('*')
+      .eq('organization_id', orgId)
+      .single();
 
-  // Get current month usage
-  const monthYear = new Date().toISOString().slice(0, 7);
-  const { data: usage } = await (supabase as any)
-    .from('audit_usage')
-    .select('count')
-    .eq('organization_id', orgId)
-    .eq('month_year', monthYear)
-    .single()
-    .catch(() => ({ data: null }));
+    // Get current month usage
+    const monthYear = new Date().toISOString().slice(0, 7);
+    const { data: usage } = await (supabase as any)
+      .from('audit_usage')
+      .select('count')
+      .eq('organization_id', orgId)
+      .eq('month_year', monthYear)
+      .single();
 
-  // Default to free plan if not found
-  if (!sub) {
+    // Default to free plan if not found
+    if (!sub) {
+      return {
+        orgId,
+        customerId: '',
+        subscriptionId: null,
+        plan: 'free',
+        status: 'active',
+        currentPeriodEnd: null,
+        usageThisMonth: usage?.count || 0,
+        quotaLimit: PLAN_LIMITS.free,
+      };
+    }
+
+    return {
+      orgId,
+      customerId: sub.stripe_customer_id || '',
+      subscriptionId: sub.stripe_subscription_id,
+      plan: sub.plan,
+      status: sub.status,
+      currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end) : null,
+      usageThisMonth: usage?.count || 0,
+      quotaLimit: PLAN_LIMITS[sub.plan as keyof typeof PLAN_LIMITS],
+    };
+  } catch (err) {
+    console.warn('Failed to get subscription:', err);
+    // Graceful fallback to free plan
     return {
       orgId,
       customerId: '',
@@ -194,21 +219,10 @@ export async function getSubscription(orgId: string): Promise<SubscriptionStatus
       plan: 'free',
       status: 'active',
       currentPeriodEnd: null,
-      usageThisMonth: usage?.count || 0,
+      usageThisMonth: 0,
       quotaLimit: PLAN_LIMITS.free,
     };
   }
-
-  return {
-    orgId,
-    customerId: sub.stripe_customer_id || '',
-    subscriptionId: sub.stripe_subscription_id,
-    plan: sub.plan,
-    status: sub.status,
-    currentPeriodEnd: sub.current_period_end ? new Date(sub.current_period_end) : null,
-    usageThisMonth: usage?.count || 0,
-    quotaLimit: PLAN_LIMITS[sub.plan as keyof typeof PLAN_LIMITS],
-  };
 }
 
 /**
