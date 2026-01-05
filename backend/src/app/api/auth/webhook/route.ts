@@ -1,5 +1,6 @@
 /**
  * Clerk webhook handler for syncing user data
+ * All supabase imports now include null checks
  */
 
 import { NextRequest, NextResponse } from 'next/server';
