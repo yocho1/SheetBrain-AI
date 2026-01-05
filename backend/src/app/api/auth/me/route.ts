@@ -21,6 +21,9 @@ export async function GET(request: NextRequest) {
     // Try to load user from DB; gracefully fall back in development
     try {
       const { supabase } = await import('@/lib/db');
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
       const { data: user, error } = await supabase
         .from('users')
         .select('*, organizations(*)')
