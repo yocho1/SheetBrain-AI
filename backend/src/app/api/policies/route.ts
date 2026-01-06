@@ -43,8 +43,7 @@ export async function POST(request: NextRequest) {
   const policy = await addPolicy(orgId, {
     title: body.title || 'Policy',
     content: body.content,
-    department: body.department,
-    tags: body.tags || [],
+    category: body.category,
     source: body.source || 'api',
   });
 
